@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "350805615180",
+    "project_id": "skola-admin-dadab",
+    "storage_bucket": "skola-admin-dadab.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:350805615180:android:c07c79a947b7bcb076cae9",
+        "android_client_info": {
+          "package_name": "com.skolaapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyGCAjEXGBz9c-PPn_IKV36YJWnHd_kFA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

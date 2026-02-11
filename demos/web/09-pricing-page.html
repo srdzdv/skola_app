@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skola - Planes y Precios</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fraunces:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #C76542;
+      --secondary: #41476E;
+      --accent: #FFBB50;
+      --dark: #191015;
+      --cream: #FFFBF7;
+      --mint: #48CFAD;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--cream);
+      color: var(--dark);
+      overflow-x: hidden;
+    }
+
+    /* Decorative background */
+    .bg-pattern {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.03;
+      background-image:
+        radial-gradient(circle at 20% 50%, var(--primary) 1px, transparent 1px),
+        radial-gradient(circle at 80% 20%, var(--secondary) 1px, transparent 1px);
+      background-size: 60px 60px, 80px 80px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 80px 40px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    .page-header {
+      text-align: center;
+      margin-bottom: 80px;
+    }
+
+    .page-header .eyebrow {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: var(--primary);
+      margin-bottom: 20px;
+    }
+
+    .page-header h1 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(40px, 6vw, 72px);
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      color: var(--secondary);
+    }
+
+    .page-header h1 .highlight {
+      color: var(--primary);
+      font-style: italic;
+      position: relative;
+    }
+
+    .page-header h1 .highlight::after {
+      content: '';
+      position: absolute;
+      bottom: 4px;
+      left: 0;
+      right: 0;
+      height: 12px;
+      background: var(--accent);
+      opacity: 0.3;
+      z-index: -1;
+      border-radius: 4px;
+    }
+
+    .page-header p {
+      font-size: 20px;
+      color: #564E4A;
+      max-width: 500px;
+      margin: 0 auto;
+      line-height: 1.6;
+      font-weight: 300;
+    }
+
+    /* Toggle */
+    .billing-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 60px;
+    }
+
+    .toggle-label {
+      font-size: 16px;
+      font-weight: 500;
+      color: #564E4A;
+    }
+
+    .toggle-label.active { color: var(--secondary); font-weight: 600; }
+
+    .toggle-switch {
+      width: 56px;
+      height: 30px;
+      background: var(--secondary);
+      border-radius: 15px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.3s;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .toggle-switch.annual::after {
+      transform: translateX(26px);
+    }
+
+    .save-badge {
+      background: var(--mint);
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    /* Pricing Grid */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      align-items: start;
+    }
+
+    .plan-card {
+      background: white;
+      border-radius: 28px;
+      padding: 48px 36px;
+      position: relative;
+      border: 2px solid transparent;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+    }
+
+    .plan-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+    }
+
+    .plan-card.featured {
+      border-color: var(--primary);
+      transform: scale(1.03);
+      box-shadow: 0 20px 60px rgba(199,101,66,0.15);
+    }
+
+    .plan-card.featured:hover {
+      transform: scale(1.03) translateY(-8px);
+    }
+
+    .plan-badge {
+      position: absolute;
+      top: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 20px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .plan-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 24px;
+    }
+
+    .plan-name {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--secondary);
+      margin-bottom: 8px;
+    }
+
+    .plan-desc {
+      font-size: 15px;
+      color: #978F8A;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .plan-price {
+      margin-bottom: 32px;
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .plan-price .currency {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--secondary);
+    }
+
+    .plan-price .amount {
+      font-family: 'Fraunces', serif;
+      font-size: 56px;
+      font-weight: 900;
+      color: var(--secondary);
+      line-height: 1;
+    }
+
+    .plan-price .period {
+      font-size: 16px;
+      color: #978F8A;
+      margin-left: 4px;
+    }
+
+    .plan-features {
+      list-style: none;
+      margin-bottom: 36px;
+    }
+
+    .plan-features li {
+      padding: 10px 0;
+      font-size: 15px;
+      color: #564E4A;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(0,0,0,0.04);
+    }
+
+    .plan-features li:last-child { border-bottom: none; }
+
+    .plan-features .check {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .check-included {
+      background: rgba(72,207,173,0.15);
+      color: #37BC9B;
+    }
+
+    .check-excluded {
+      background: rgba(0,0,0,0.05);
+      color: #ccc;
+    }
+
+    .plan-cta {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      border-radius: 80px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.3s;
+    }
+
+    .cta-primary {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 4px 0 #a0503a;
+    }
+
+    .cta-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 #a0503a, 0 12px 24px rgba(199,101,66,0.2);
+    }
+
+    .cta-secondary {
+      background: var(--secondary);
+      color: white;
+      box-shadow: 0 4px 0 #2d3254;
+    }
+
+    .cta-secondary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 #2d3254, 0 12px 24px rgba(65,71,110,0.2);
+    }
+
+    .cta-ghost {
+      background: transparent;
+      color: var(--secondary);
+      border: 2px solid rgba(65,71,110,0.2);
+    }
+
+    .cta-ghost:hover {
+      border-color: var(--secondary);
+      background: rgba(65,71,110,0.04);
+    }
+
+    /* FAQ */
+    .faq {
+      margin-top: 100px;
+      text-align: center;
+    }
+
+    .faq h2 {
+      font-family: 'Fraunces', serif;
+      font-size: 36px;
+      font-weight: 700;
+      color: var(--secondary);
+      margin-bottom: 48px;
+    }
+
+    .faq-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      text-align: left;
+    }
+
+    .faq-item {
+      padding: 28px;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    }
+
+    .faq-item h4 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--secondary);
+      margin-bottom: 8px;
+    }
+
+    .faq-item p {
+      font-size: 14px;
+      color: #978F8A;
+      line-height: 1.6;
+    }
+
+    /* Footer note */
+    .footer-note {
+      text-align: center;
+      margin-top: 60px;
+      padding: 32px;
+      color: #978F8A;
+      font-size: 14px;
+    }
+
+    @media (max-width: 768px) {
+      .pricing-grid { grid-template-columns: 1fr; }
+      .plan-card.featured { transform: none; }
+      .plan-card.featured:hover { transform: translateY(-8px); }
+      .container { padding: 40px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-pattern"></div>
+
+  <div class="container">
+    <div class="page-header">
+      <div class="eyebrow">Precios Simples</div>
+      <h1>El plan perfecto para<br><span class="highlight">tu escuela</span></h1>
+      <p>Sin sorpresas, sin contratos largos. Crece a tu ritmo con el plan que mejor se adapte.</p>
+    </div>
+
+    <div class="billing-toggle">
+      <span class="toggle-label active">Mensual</span>
+      <div class="toggle-switch" onclick="this.classList.toggle('annual')"></div>
+      <span class="toggle-label">Anual</span>
+      <span class="save-badge">Ahorra 20%</span>
+    </div>
+
+    <div class="pricing-grid">
+      <!-- Starter -->
+      <div class="plan-card">
+        <div class="plan-icon" style="background: rgba(93,156,236,0.12);">🌱</div>
+        <div class="plan-name">Inicio</div>
+        <div class="plan-desc">Para escuelas pequeñas que buscan organizarse mejor.</div>
+        <div class="plan-price">
+          <span class="currency">$</span>
+          <span class="amount">299</span>
+          <span class="period">/mes</span>
+        </div>
+        <ul class="plan-features">
+          <li><span class="check check-included">✓</span> Hasta 100 alumnos</li>
+          <li><span class="check check-included">✓</span> Grupos y clases</li>
+          <li><span class="check check-included">✓</span> Comunicación básica</li>
+          <li><span class="check check-included">✓</span> Eventos</li>
+          <li><span class="check check-excluded">—</span> Control de accesos</li>
+          <li><span class="check check-excluded">—</span> Pagos y cobranza</li>
+          <li><span class="check check-excluded">—</span> Marketing</li>
+        </ul>
+        <a href="#" class="plan-cta cta-ghost">Empezar Gratis</a>
+      </div>
+
+      <!-- Pro -->
+      <div class="plan-card featured">
+        <div class="plan-badge">Más Popular</div>
+        <div class="plan-icon" style="background: rgba(199,101,66,0.12);">🏫</div>
+        <div class="plan-name">Profesional</div>
+        <div class="plan-desc">Todo lo que necesitas para gestionar tu escuela eficientemente.</div>
+        <div class="plan-price">
+          <span class="currency">$</span>
+          <span class="amount">699</span>
+          <span class="period">/mes</span>
+        </div>
+        <ul class="plan-features">
+          <li><span class="check check-included">✓</span> Hasta 500 alumnos</li>
+          <li><span class="check check-included">✓</span> Grupos ilimitados</li>
+          <li><span class="check check-included">✓</span> Comunicación avanzada</li>
+          <li><span class="check check-included">✓</span> Eventos con RSVP</li>
+          <li><span class="check check-included">✓</span> Control de accesos QR</li>
+          <li><span class="check check-included">✓</span> Pagos y estados de cuenta</li>
+          <li><span class="check check-excluded">—</span> Marketing avanzado</li>
+        </ul>
+        <a href="#" class="plan-cta cta-primary">Comenzar Ahora</a>
+      </div>
+
+      <!-- Enterprise -->
+      <div class="plan-card">
+        <div class="plan-icon" style="background: rgba(172,146,236,0.12);">🎓</div>
+        <div class="plan-name">Institucional</div>
+        <div class="plan-desc">Para instituciones grandes con múltiples campus y necesidades avanzadas.</div>
+        <div class="plan-price">
+          <span class="currency">$</span>
+          <span class="amount">1,499</span>
+          <span class="period">/mes</span>
+        </div>
+        <ul class="plan-features">
+          <li><span class="check check-included">✓</span> Alumnos ilimitados</li>
+          <li><span class="check check-included">✓</span> Multi-campus</li>
+          <li><span class="check check-included">✓</span> Todas las funciones</li>
+          <li><span class="check check-included">✓</span> Marketing completo</li>
+          <li><span class="check check-included">✓</span> API personalizada</li>
+          <li><span class="check check-included">✓</span> Soporte prioritario</li>
+          <li><span class="check check-included">✓</span> Onboarding dedicado</li>
+        </ul>
+        <a href="#" class="plan-cta cta-secondary">Contactar Ventas</a>
+      </div>
+    </div>
+
+    <section class="faq">
+      <h2>Preguntas Frecuentes</h2>
+      <div class="faq-grid">
+        <div class="faq-item">
+          <h4>¿Puedo cambiar de plan después?</h4>
+          <p>Sí, puedes subir o bajar de plan en cualquier momento. Los cambios se reflejan en tu próximo ciclo de facturación.</p>
+        </div>
+        <div class="faq-item">
+          <h4>¿Hay periodo de prueba?</h4>
+          <p>Ofrecemos 30 días gratis en cualquier plan sin compromiso. No necesitas tarjeta de crédito para empezar.</p>
+        </div>
+        <div class="faq-item">
+          <h4>¿Incluye capacitación?</h4>
+          <p>Todos los planes incluyen tutoriales y guías. El plan Institucional incluye capacitación personalizada presencial.</p>
+        </div>
+        <div class="faq-item">
+          <h4>¿Mis datos están seguros?</h4>
+          <p>Utilizamos encriptación de grado bancario y servidores certificados. Tus datos están protegidos siempre.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      <p>Precios en MXN. IVA incluido. Sin contratos a largo plazo.</p>
+    </div>
+  </div>
+</body>
+</html>

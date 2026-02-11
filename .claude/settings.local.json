@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(remotion-best-practices)",
+      "Skill(frontend-design)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run compile:*)",
+      "Bash(node:*)",
+      "Bash(npx eslint:*)"
+    ]
+  }
+}

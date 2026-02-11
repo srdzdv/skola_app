@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skola - Dashboard Administrativo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #C76542;
+      --secondary: #41476E;
+      --accent: #FFBB50;
+      --dark: #0F0F1A;
+      --card-bg: #1A1A2E;
+      --border: rgba(255,255,255,0.06);
+      --text-muted: rgba(255,255,255,0.5);
+      --grapefruit: #ED5565;
+      --mint: #48CFAD;
+      --lavender: #AC92EC;
+      --blue: #5D9CEC;
+      --grass: #A0D468;
+      --sunflower: #FFCE54;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--dark);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 260px;
+      background: var(--card-bg);
+      border-right: 1px solid var(--border);
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 10;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      margin-bottom: 32px;
+    }
+
+    .sidebar-logo .icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .sidebar-logo .name {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .nav-section {
+      margin-bottom: 24px;
+    }
+
+    .nav-section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-muted);
+      padding: 0 12px;
+      margin-bottom: 8px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 15px;
+      color: rgba(255,255,255,0.7);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      margin-bottom: 2px;
+    }
+
+    .nav-item:hover {
+      background: rgba(255,255,255,0.05);
+      color: white;
+    }
+
+    .nav-item.active {
+      background: rgba(199,101,66,0.12);
+      color: var(--primary);
+      font-weight: 500;
+    }
+
+    .nav-item .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 16px 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .sidebar-footer .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--lavender), var(--blue));
+    }
+
+    .sidebar-footer .user-info {
+      flex: 1;
+    }
+
+    .sidebar-footer .user-name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .sidebar-footer .user-role {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Main Content */
+    .main {
+      flex: 1;
+      margin-left: 260px;
+      padding: 32px;
+      overflow-y: auto;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+
+    .top-bar h1 {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .top-bar .date {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      color: var(--text-muted);
+      background: var(--card-bg);
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    /* Stats Row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--stat-color);
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .stat-change {
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .stat-change.positive { color: var(--mint); }
+    .stat-change.negative { color: var(--grapefruit); }
+
+    /* Charts Area */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .chart-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .chart-header h3 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .chart-header .filter {
+      font-size: 13px;
+      color: var(--text-muted);
+      background: rgba(255,255,255,0.05);
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    /* Mock Chart - Attendance */
+    .mock-chart {
+      height: 200px;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      padding-top: 20px;
+    }
+
+    .chart-bar {
+      flex: 1;
+      border-radius: 6px 6px 0 0;
+      position: relative;
+      transition: opacity 0.3s;
+      cursor: pointer;
+    }
+
+    .chart-bar:hover { opacity: 0.8; }
+
+    .chart-bar .bar-label {
+      position: absolute;
+      bottom: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* Activities List */
+    .activity-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+    }
+
+    .activity-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .activity-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .activity-item:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(255,255,255,0.1);
+    }
+
+    .activity-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .activity-info { flex: 1; }
+
+    .activity-title {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .activity-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .activity-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Bottom Row */
+    .bottom-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    /* Quick Actions */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .quick-action {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 20px 12px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .quick-action:hover {
+      background: rgba(255,255,255,0.06);
+      transform: translateY(-2px);
+    }
+
+    .quick-action .qa-icon {
+      font-size: 28px;
+    }
+
+    .quick-action .qa-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Donut chart mock */
+    .donut-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 20px 0;
+    }
+
+    .donut {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: conic-gradient(
+        var(--mint) 0% 45%,
+        var(--blue) 45% 70%,
+        var(--sunflower) 70% 85%,
+        var(--grapefruit) 85% 100%
+      );
+      position: relative;
+    }
+
+    .donut::after {
+      content: '';
+      position: absolute;
+      top: 25%;
+      left: 25%;
+      width: 50%;
+      height: 50%;
+      border-radius: 50%;
+      background: var(--card-bg);
+    }
+
+    .donut-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.7);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+    }
+
+    /* Live Monitor */
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(237,85,101,0.1);
+      color: var(--grapefruit);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .live-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--grapefruit);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    @media (max-width: 1024px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .charts-row { grid-template-columns: 1fr; }
+      .bottom-row { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 600px) {
+      .stats-row { grid-template-columns: 1fr; }
+      .main { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="icon">S</div>
+      <div class="name">Skola</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Principal</div>
+      <a href="#" class="nav-item active">
+        <span class="dot" style="background: var(--primary)"></span>
+        Dashboard
+      </a>
+      <a href="#" class="nav-item">
+        <span class="dot" style="background: var(--grapefruit)"></span>
+        Grupos
+      </a>
+      <a href="#" class="nav-item">
+        <span class="dot" style="background: var(--blue)"></span>
+        Comunicación
+      </a>
+      <a href="#" class="nav-item">
+        <span class="dot" style="background: var(--lavender)"></span>
+        Eventos
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Administración</div>
+      <a href="#" class="nav-item">
+        <span class="dot" style="background: var(--grass)"></span>
+        Accesos
+      </a>
+      <a href="#" class="nav-item">
+        <span class="dot" style="background: var(--sunflower)"></span>
+        Pagos
+      </a>
+      <a href="#" class="nav-item">
+        <span class="dot" style="background: var(--mint)"></span>
+        Estudiantes
+      </a>
+      <a href="#" class="nav-item">
+        <span class="dot" style="background: #EC87C0"></span>
+        Usuarios
+      </a>
+      <a href="#" class="nav-item">
+        <span class="dot" style="background: #8A2BE2"></span>
+        Marketing
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="avatar"></div>
+      <div class="user-info">
+        <div class="user-name">Ana Directora</div>
+        <div class="user-role">Administradora</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+    <div class="top-bar">
+      <h1>Buenos días, Ana</h1>
+      <div class="date">22 Ene 2026</div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card" style="--stat-color: var(--blue)">
+        <div class="stat-label"><span class="dot" style="background: var(--blue); width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span> Alumnos Hoy</div>
+        <div class="stat-value">342</div>
+        <div class="stat-change positive">↑ 12 vs ayer</div>
+      </div>
+      <div class="stat-card" style="--stat-color: var(--mint)">
+        <div class="stat-label"><span class="dot" style="background: var(--mint); width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span> Asistencia</div>
+        <div class="stat-value">94%</div>
+        <div class="stat-change positive">↑ 2% vs semana</div>
+      </div>
+      <div class="stat-card" style="--stat-color: var(--accent)">
+        <div class="stat-label"><span class="dot" style="background: var(--accent); width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span> Pagos Pendientes</div>
+        <div class="stat-value">$48K</div>
+        <div class="stat-change negative">↓ 5 familias</div>
+      </div>
+      <div class="stat-card" style="--stat-color: var(--lavender)">
+        <div class="stat-label"><span class="dot" style="background: var(--lavender); width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span> Mensajes</div>
+        <div class="stat-value">128</div>
+        <div class="stat-change positive">↑ 34 hoy</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>Asistencia Semanal</h3>
+          <span class="filter">Esta semana</span>
+        </div>
+        <div class="mock-chart">
+          <div class="chart-bar" style="height: 75%; background: linear-gradient(180deg, var(--mint), var(--mint)50);"><span class="bar-label">Lun</span></div>
+          <div class="chart-bar" style="height: 88%; background: linear-gradient(180deg, var(--mint), var(--mint)50);"><span class="bar-label">Mar</span></div>
+          <div class="chart-bar" style="height: 92%; background: linear-gradient(180deg, var(--mint), var(--mint)50);"><span class="bar-label">Mié</span></div>
+          <div class="chart-bar" style="height: 85%; background: linear-gradient(180deg, var(--mint), var(--mint)50);"><span class="bar-label">Jue</span></div>
+          <div class="chart-bar" style="height: 94%; background: linear-gradient(180deg, var(--accent), var(--accent)50);"><span class="bar-label">Vie</span></div>
+          <div class="chart-bar" style="height: 40%; background: linear-gradient(180deg, var(--blue)50, var(--blue)20);"><span class="bar-label">Sáb</span></div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>Distribución</h3>
+        </div>
+        <div class="donut-container">
+          <div class="donut"></div>
+          <div class="donut-legend">
+            <div class="legend-item"><span class="legend-dot" style="background: var(--mint)"></span> Preescolar</div>
+            <div class="legend-item"><span class="legend-dot" style="background: var(--blue)"></span> Primaria</div>
+            <div class="legend-item"><span class="legend-dot" style="background: var(--sunflower)"></span> Secundaria</div>
+            <div class="legend-item"><span class="legend-dot" style="background: var(--grapefruit)"></span> Preparatoria</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="bottom-row">
+      <div class="activity-card">
+        <div class="chart-header">
+          <h3>Actividad Reciente</h3>
+          <span class="live-badge">En Vivo</span>
+        </div>
+        <div class="activity-list">
+          <div class="activity-item">
+            <div class="activity-dot" style="background: var(--grass)"></div>
+            <div class="activity-info">
+              <div class="activity-title">María García - Entrada</div>
+              <div class="activity-meta">3° Primaria A • Puerta Principal</div>
+            </div>
+            <div class="activity-time">8:02</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot" style="background: var(--blue)"></div>
+            <div class="activity-info">
+              <div class="activity-title">Nuevo mensaje enviado</div>
+              <div class="activity-meta">Circular Enero • 5° Grado</div>
+            </div>
+            <div class="activity-time">7:58</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot" style="background: var(--accent)"></div>
+            <div class="activity-info">
+              <div class="activity-title">Pago recibido</div>
+              <div class="activity-meta">Fam. López • $2,500 MXN</div>
+            </div>
+            <div class="activity-time">7:45</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot" style="background: var(--lavender)"></div>
+            <div class="activity-info">
+              <div class="activity-title">Evento creado</div>
+              <div class="activity-meta">Festival de Primavera • 15 Mar</div>
+            </div>
+            <div class="activity-time">7:30</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot" style="background: var(--grass)"></div>
+            <div class="activity-info">
+              <div class="activity-title">Carlos Ruiz - Entrada</div>
+              <div class="activity-meta">1° Secundaria B • Puerta Sur</div>
+            </div>
+            <div class="activity-time">7:28</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3>Acciones Rápidas</h3>
+        </div>
+        <div class="quick-actions">
+          <div class="quick-action">
+            <span class="qa-icon">📢</span>
+            <span class="qa-label">Enviar Mensaje</span>
+          </div>
+          <div class="quick-action">
+            <span class="qa-icon">📅</span>
+            <span class="qa-label">Crear Evento</span>
+          </div>
+          <div class="quick-action">
+            <span class="qa-icon">📱</span>
+            <span class="qa-label">Abrir Scanner</span>
+          </div>
+          <div class="quick-action">
+            <span class="qa-icon">👤</span>
+            <span class="qa-label">Nuevo Alumno</span>
+          </div>
+          <div class="quick-action">
+            <span class="qa-icon">💳</span>
+            <span class="qa-label">Registrar Pago</span>
+          </div>
+          <div class="quick-action">
+            <span class="qa-icon">📊</span>
+            <span class="qa-label">Ver Reportes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

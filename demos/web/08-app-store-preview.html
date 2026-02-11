@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skola - App Store Preview</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #C76542;
+      --secondary: #41476E;
+      --accent: #FFBB50;
+      --dark: #0A0A12;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--dark);
+      color: white;
+      overflow-x: hidden;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 80px 40px;
+    }
+
+    /* App Header */
+    .app-header {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      margin-bottom: 60px;
+      padding: 40px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 32px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .app-icon {
+      width: 120px;
+      height: 120px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 56px;
+      font-weight: 700;
+      flex-shrink: 0;
+      box-shadow: 0 12px 40px rgba(199,101,66,0.4);
+    }
+
+    .app-info h1 {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .app-info .developer {
+      color: var(--primary);
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 12px;
+    }
+
+    .app-info .subtitle {
+      color: rgba(255,255,255,0.6);
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+
+    .app-meta {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .meta-item {
+      text-align: center;
+    }
+
+    .meta-item .value {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .meta-item .label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 4px;
+    }
+
+    .stars {
+      color: var(--accent);
+      font-size: 18px;
+    }
+
+    .download-btn {
+      display: inline-block;
+      padding: 14px 36px;
+      background: #007AFF;
+      color: white;
+      border-radius: 80px;
+      font-weight: 600;
+      font-size: 16px;
+      text-decoration: none;
+      margin-top: 16px;
+      transition: all 0.3s;
+    }
+
+    .download-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 24px rgba(0,122,255,0.4);
+    }
+
+    /* Screenshot Gallery */
+    .screenshots-section h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(32px, 4vw, 48px);
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    .screenshots-scroll {
+      display: flex;
+      gap: 24px;
+      overflow-x: auto;
+      padding: 20px 0 40px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .screenshots-scroll::-webkit-scrollbar {
+      height: 6px;
+    }
+
+    .screenshots-scroll::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.05);
+      border-radius: 3px;
+    }
+
+    .screenshots-scroll::-webkit-scrollbar-thumb {
+      background: var(--primary);
+      border-radius: 3px;
+    }
+
+    .screenshot-item {
+      flex-shrink: 0;
+      scroll-snap-align: center;
+      position: relative;
+    }
+
+    .phone-frame {
+      width: 280px;
+      height: 580px;
+      border-radius: 44px;
+      background: #1a1a2e;
+      padding: 12px;
+      position: relative;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(255,255,255,0.1);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .phone-frame:hover {
+      transform: translateY(-12px) scale(1.02);
+    }
+
+    .phone-notch {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 28px;
+      background: #1a1a2e;
+      border-radius: 0 0 16px 16px;
+      z-index: 5;
+    }
+
+    .phone-screen {
+      width: 100%;
+      height: 100%;
+      border-radius: 34px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Mock screen designs */
+    .screen-grupos {
+      background: linear-gradient(180deg, var(--secondary) 0%, var(--secondary) 35%, #f5f5f5 35%);
+      padding: 50px 20px 20px;
+    }
+
+    .screen-comunicacion {
+      background: linear-gradient(180deg, #4A89DC 0%, #4A89DC 30%, #f5f5f5 30%);
+      padding: 50px 20px 20px;
+    }
+
+    .screen-eventos {
+      background: linear-gradient(180deg, #967ADC 0%, #967ADC 28%, #f5f5f5 28%);
+      padding: 50px 20px 20px;
+    }
+
+    .screen-accesos {
+      background: linear-gradient(180deg, #8CC152 0%, #8CC152 40%, #f5f5f5 40%);
+      padding: 50px 20px 20px;
+    }
+
+    .screen-pagos {
+      background: linear-gradient(180deg, #E9573F 0%, #E9573F 32%, #f5f5f5 32%);
+      padding: 50px 20px 20px;
+    }
+
+    .screen-marketing {
+      background: linear-gradient(180deg, #8A2BE2 0%, #8A2BE2 35%, #f5f5f5 35%);
+      padding: 50px 20px 20px;
+    }
+
+    .screen-title {
+      color: white;
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .screen-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .mock-card {
+      background: white;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .mock-card-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mock-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .mock-lines {
+      flex: 1;
+    }
+
+    .mock-line {
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.08);
+      margin-bottom: 6px;
+    }
+
+    .mock-line:last-child { margin-bottom: 0; width: 60%; }
+
+    .screenshot-label {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 16px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.7);
+    }
+
+    /* Reviews Section */
+    .reviews {
+      margin-top: 80px;
+      padding: 60px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 32px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .reviews h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 32px;
+      margin-bottom: 40px;
+    }
+
+    .reviews-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .review-card {
+      padding: 28px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .review-stars {
+      color: var(--accent);
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+
+    .review-text {
+      font-size: 15px;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 16px;
+    }
+
+    .review-author {
+      font-size: 13px;
+      color: rgba(255,255,255,0.4);
+      font-weight: 500;
+    }
+
+    /* What's New */
+    .whats-new {
+      margin-top: 60px;
+      padding: 48px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 32px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .whats-new h2 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .whats-new .version {
+      color: rgba(255,255,255,0.4);
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .whats-new ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .whats-new li {
+      font-size: 15px;
+      color: rgba(255,255,255,0.7);
+      padding-left: 20px;
+      position: relative;
+    }
+
+    .whats-new li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+
+    @media (max-width: 768px) {
+      .app-header { flex-direction: column; text-align: center; }
+      .app-meta { justify-content: center; }
+      .container { padding: 40px 20px; }
+      .reviews, .whats-new { padding: 32px 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="app-header">
+      <div class="app-icon">S</div>
+      <div class="app-info">
+        <h1>Skola App</h1>
+        <div class="developer">NIEU Technology</div>
+        <div class="subtitle">Gestión escolar todo-en-uno para tu institución</div>
+        <div class="app-meta">
+          <div class="meta-item">
+            <div class="value">4.8 <span class="stars">★</span></div>
+            <div class="label">Rating</div>
+          </div>
+          <div class="meta-item">
+            <div class="value">500+</div>
+            <div class="label">Escuelas</div>
+          </div>
+          <div class="meta-item">
+            <div class="value">v2.1.2</div>
+            <div class="label">Versión</div>
+          </div>
+          <div class="meta-item">
+            <div class="value">48MB</div>
+            <div class="label">Tamaño</div>
+          </div>
+        </div>
+        <a href="#" class="download-btn">Descargar</a>
+      </div>
+    </div>
+
+    <section class="screenshots-section">
+      <h2>Capturas de Pantalla</h2>
+      <div class="screenshots-scroll">
+        <div class="screenshot-item">
+          <div class="phone-frame">
+            <div class="phone-notch"></div>
+            <div class="phone-screen screen-grupos">
+              <div class="screen-title">Mis Grupos</div>
+              <div class="screen-cards">
+                <div class="mock-card">
+                  <div class="mock-card-row">
+                    <div class="mock-avatar" style="background: #ED5565;"></div>
+                    <div class="mock-lines"><div class="mock-line" style="width:70%"></div><div class="mock-line"></div></div>
+                  </div>
+                </div>
+                <div class="mock-card">
+                  <div class="mock-card-row">
+                    <div class="mock-avatar" style="background: #FFCE54;"></div>
+                    <div class="mock-lines"><div class="mock-line" style="width:85%"></div><div class="mock-line"></div></div>
+                  </div>
+                </div>
+                <div class="mock-card">
+                  <div class="mock-card-row">
+                    <div class="mock-avatar" style="background: #5D9CEC;"></div>
+                    <div class="mock-lines"><div class="mock-line" style="width:60%"></div><div class="mock-line"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="screenshot-label">Grupos</div>
+        </div>
+
+        <div class="screenshot-item">
+          <div class="phone-frame">
+            <div class="phone-notch"></div>
+            <div class="phone-screen screen-comunicacion">
+              <div class="screen-title">Comunicación</div>
+              <div class="screen-cards">
+                <div class="mock-card">
+                  <div class="mock-card-row">
+                    <div class="mock-avatar" style="background: #4A89DC;"></div>
+                    <div class="mock-lines"><div class="mock-line"></div><div class="mock-line" style="width:50%"></div></div>
+                  </div>
+                </div>
+                <div class="mock-card">
+                  <div class="mock-card-row">
+                    <div class="mock-avatar" style="background: #AC92EC;"></div>
+                    <div class="mock-lines"><div class="mock-line" style="width:90%"></div><div class="mock-line"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="screenshot-label">Mensajes</div>
+        </div>
+
+        <div class="screenshot-item">
+          <div class="phone-frame">
+            <div class="phone-notch"></div>
+            <div class="phone-screen screen-eventos">
+              <div class="screen-title">Eventos</div>
+              <div class="screen-cards">
+                <div class="mock-card">
+                  <div class="mock-card-row">
+                    <div class="mock-avatar" style="background: #967ADC;"></div>
+                    <div class="mock-lines"><div class="mock-line" style="width:75%"></div><div class="mock-line"></div></div>
+                  </div>
+                </div>
+                <div class="mock-card">
+                  <div class="mock-card-row">
+                    <div class="mock-avatar" style="background: #48CFAD;"></div>
+                    <div class="mock-lines"><div class="mock-line"></div><div class="mock-line" style="width:40%"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="screenshot-label">Eventos</div>
+        </div>
+
+        <div class="screenshot-item">
+          <div class="phone-frame">
+            <div class="phone-notch"></div>
+            <div class="phone-screen screen-accesos">
+              <div class="screen-title">Escanear QR</div>
+              <div class="screen-cards" style="align-items: center; padding-top: 40px;">
+                <div style="width: 140px; height: 140px; border: 3px solid rgba(0,0,0,0.15); border-radius: 20px; display: flex; align-items: center; justify-content: center;">
+                  <div style="width: 100px; height: 100px; background: repeating-conic-gradient(rgba(0,0,0,0.1) 0% 25%, transparent 0% 50%) 50%/20px 20px; border-radius: 8px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="screenshot-label">Accesos</div>
+        </div>
+
+        <div class="screenshot-item">
+          <div class="phone-frame">
+            <div class="phone-notch"></div>
+            <div class="phone-screen screen-pagos">
+              <div class="screen-title">Pagos</div>
+              <div class="screen-cards">
+                <div class="mock-card">
+                  <div class="mock-card-row">
+                    <div class="mock-avatar" style="background: #E9573F;"></div>
+                    <div class="mock-lines"><div class="mock-line" style="width:65%"></div><div class="mock-line"></div></div>
+                  </div>
+                </div>
+                <div class="mock-card">
+                  <div class="mock-card-row">
+                    <div class="mock-avatar" style="background: #FFCE54;"></div>
+                    <div class="mock-lines"><div class="mock-line" style="width:80%"></div><div class="mock-line"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="screenshot-label">Pagos</div>
+        </div>
+
+        <div class="screenshot-item">
+          <div class="phone-frame">
+            <div class="phone-notch"></div>
+            <div class="phone-screen screen-marketing">
+              <div class="screen-title">Marketing</div>
+              <div class="screen-cards">
+                <div class="mock-card">
+                  <div class="mock-card-row">
+                    <div class="mock-avatar" style="background: #8A2BE2;"></div>
+                    <div class="mock-lines"><div class="mock-line" style="width:70%"></div><div class="mock-line"></div></div>
+                  </div>
+                </div>
+                <div class="mock-card">
+                  <div class="mock-card-row">
+                    <div class="mock-avatar" style="background: #48CFAD;"></div>
+                    <div class="mock-lines"><div class="mock-line" style="width:55%"></div><div class="mock-line"></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="screenshot-label">Marketing</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="reviews">
+      <h2>Reseñas</h2>
+      <div class="reviews-grid">
+        <div class="review-card">
+          <div class="review-stars">★★★★★</div>
+          <p class="review-text">"Nos cambió la forma de comunicarnos con las familias. Antes usábamos WhatsApp y se perdían los mensajes. Ahora todo queda registrado."</p>
+          <div class="review-author">— Directora María L., Colegio Montessori</div>
+        </div>
+        <div class="review-card">
+          <div class="review-stars">★★★★★</div>
+          <p class="review-text">"El control de accesos con QR nos dio mucha tranquilidad. Los papás escanean y listo, sabemos quién entra y sale."</p>
+          <div class="review-author">— Prof. Roberto G., Instituto Cervantes</div>
+        </div>
+        <div class="review-card">
+          <div class="review-stars">★★★★★</div>
+          <p class="review-text">"La gestión de pagos nos ahorró horas de trabajo administrativo. Todo es automático y claro para las familias."</p>
+          <div class="review-author">— Admin. Laura P., Escuela Primaria Sol</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="whats-new">
+      <h2>Novedades</h2>
+      <div class="version">Versión 2.1.2 — Enero 2026</div>
+      <ul>
+        <li>Nuevo Centro de Marketing para redes sociales</li>
+        <li>Notificaciones push mejoradas en Android</li>
+        <li>Corrección de errores en pantalla de login</li>
+        <li>Actualización a Expo 54 para mejor rendimiento</li>
+        <li>Interfaz renovada con animaciones más fluidas</li>
+      </ul>
+    </section>
+  </div>
+</body>
+</html>
