@@ -93,6 +93,7 @@ export type AppStackParamList = {
     grupoData?: any
     reloadTable?: (msgType: number) => void
   }
+	RegistroAlumno: undefined
 	// IGNITE_GENERATOR_ANCHOR_APP_STACK_PARAM_LIST
 }
 
@@ -151,6 +152,7 @@ const AppStack = observer(function AppStack() {
       ) : (
         <>
           <Stack.Screen name="Login" component={Screens.LoginScreen} />
+          <Stack.Screen name="RegistroAlumno" component={Screens.RegistroAlumnoScreen} />
         </>
       )}
 

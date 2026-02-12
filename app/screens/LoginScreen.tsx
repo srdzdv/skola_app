@@ -18,7 +18,7 @@ const SkolaDotsImg = Image.resolveAssetSource(SkolaDotsURI).uri
 
 interface LoginScreenProps extends NativeStackScreenProps<AppStackScreenProps<"Login">> {}
 
-export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen() {
+export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen({ navigation }) {
   const authPasswordInput = useRef<TextInput>(null)
   const [isAuthPasswordHidden, setIsAuthPasswordHidden] = useState(true)
   const [isSubmitted, setIsSubmitted] = useState(false)
@@ -246,6 +246,13 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen()
           </TouchableOpacity>
         )}
       </View>
+
+      <TouchableOpacity
+        style={$registerButton}
+        onPress={() => navigation.navigate("RegistroAlumno")}
+      >
+        <Text style={$registerText}>Registrar Alumno Nuevo</Text>
+      </TouchableOpacity>
     </Screen>
   )
 })
@@ -328,4 +335,17 @@ const $infoButton: ViewStyle = {
   alignSelf: "center",
   height: 30,
   marginTop: 80,
+}
+
+const $registerButton: ViewStyle = {
+  alignSelf: "center",
+  marginTop: 24,
+  paddingVertical: 12,
+  paddingHorizontal: 20,
+}
+
+const $registerText: TextStyle = {
+  color: colors.palette.bluejeansLight,
+  fontSize: 16,
+  textDecorationLine: "underline",
 }

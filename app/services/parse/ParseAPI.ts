@@ -1602,6 +1602,152 @@ export async function setAnuncioThreadId(anuncioId: string, threadId: string) {
     return anuncioObj.id
 }
 
+// ============================================
+// Public Parent Registration
+// ============================================
+
+/**
+ * Validate a school registration code and return the school object if valid.
+ * The registration code is the Escuela's objectId.
+ */
+export async function validateSchoolCode(schoolCode: string) {
+    try {
+        const Escuela = Parse.Object.extend("Escuela")
+        const query = new Parse.Query(Escuela)
+        const escuela = await query.get(schoolCode)
+
+        if (!escuela) {
+            return { valid: false, escuela: null, nombre: null }
+        }
+
+        const isPaid = escuela.get("paid")
+        if (isPaid === false) {
+            return { valid: false, escuela: null, nombre: null }
+        }
+
+        return {
+            valid: true,
+            escuela: escuela,
+            escuelaId: escuela.id,
+            nombre: escuela.get("nombre"),
+        }
+    } catch (error) {
+        console.error("Error validating school code:", error)
+        return { valid: false, escuela: null, nombre: null }
+    }
+}
+
+/**
+ * Public registration: create a student record with pending status.
+ * The student is linked to the school but not yet assigned to a grupo.
+ */
+export async function saveEstudiantePendiente(escuelaId: string, estudianteData: Record<string, any>) {
+    const Estudiantes = Parse.Object.extend("Estudiantes")
+    const estudiante = new Estudiantes()
+
+    const Escuela = Parse.Object.extend("Escuela")
+    const escuelaQuery = new Parse.Query(Escuela)
+    const escuelaObj = await escuelaQuery.get(escuelaId)
+
+    estudiante.set("NOMBRE", estudianteData.nombre)
+    estudiante.set("ApPATERNO", estudianteData.apPaterno)
+    estudiante.set("ApMATERNO", estudianteData.apMaterno)
+    estudiante.set("APELLIDO", `${estudianteData.apPaterno} ${estudianteData.apMaterno}`)
+    estudiante.set("CURP", estudianteData.curp || "")
+    estudiante.set("GENERO", estudianteData.genero || "")
+    estudiante.set("fechaNacimiento", estudianteData.fechaNacimiento)
+    estudiante.set("escuela", escuelaObj)
+    estudiante.set("status", "pendiente")
+
+    const result = await estudiante.save()
+    return result.id
+}
+
+/**
+ * Public registration: creates a parent user and links them to the student.
+ * Calls the newUserSignUp cloud function and then creates the relationship.
+ * Returns the parent credentials for email notification.
+ */
+export async function registerParentPublic(
+    escuelaId: string,
+    estudianteId: string,
+    parentData: {
+        nombre: string
+        apellidos: string
+        email: string
+        telefono: string
+        direccion: string
+        parentesco: string
+    }
+) {
+    // Create the parent user via cloud function
+    const userParams = {
+        username: parentData.email || `${parentData.nombre}_${parentData.apellidos}`,
+        nombre: parentData.nombre,
+        apellidos: parentData.apellidos,
+        domicilio: parentData.direccion,
+        telCasa: "",
+        telCel: parentData.telefono,
+        email: parentData.email,
+        parentesco: parentData.parentesco,
+        escuela: escuelaId,
+    }
+
+    const result = await runCloudCodeFunction("newUserSignUp", userParams)
+
+    let userId: string | null = null
+    if (result) {
+        if (result.success && result.data) {
+            userId = result.data.userId || result.data.objectId || result.data.id
+        } else if (typeof result === "string") {
+            userId = result
+        } else if (result.objectId || result.id || result.userId) {
+            userId = result.objectId || result.id || result.userId
+        }
+    }
+
+    if (!userId) {
+        throw new Error("No fue posible crear la cuenta del padre/madre.")
+    }
+
+    // Link the parent to the student
+    await updateEstudiantePersonasAutRelation(estudianteId, [userId])
+
+    return {
+        userId,
+        username: userParams.username,
+    }
+}
+
+/**
+ * Send welcome email with login credentials after public registration.
+ * Calls a cloud function that handles email delivery server-side.
+ */
+export async function sendRegistrationEmail(params: {
+    email: string
+    parentName: string
+    studentName: string
+    schoolName: string
+    username: string
+    escuelaId: string
+}) {
+    try {
+        const result = await runCloudCodeFunction("sendParentRegistrationEmail", {
+            email: params.email,
+            parentName: params.parentName,
+            studentName: params.studentName,
+            schoolName: params.schoolName,
+            username: params.username,
+            escuelaId: params.escuelaId,
+        })
+        return result
+    } catch (error) {
+        console.error("Error sending registration email:", error)
+        // Don't throw - email failure shouldn't block registration
+        return null
+    }
+}
+
 export async function fetchFacturapiRFCs(estudianteId: string) {
     const Facturapi = Parse.Object.extend("Facturapi")
     const query = new Parse.Query(Facturapi)
