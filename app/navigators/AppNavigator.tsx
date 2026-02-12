@@ -86,6 +86,13 @@ export type AppStackParamList = {
 	Marketing: undefined
 	CrearFactura: undefined
 	Facturas: undefined
+	ThreadDetail: {
+    threadId: string
+    threadSubject?: string
+    estudianteId?: string | null
+    grupoData?: any
+    reloadTable?: (msgType: number) => void
+  }
 	// IGNITE_GENERATOR_ANCHOR_APP_STACK_PARAM_LIST
 }
 
@@ -185,6 +192,7 @@ const AppStack = observer(function AppStack() {
 			<Stack.Screen name="Marketing" component={Screens.MarketingScreen} />
 			<Stack.Screen name="CrearFactura" component={Screens.CrearFacturaScreen} />
 			<Stack.Screen name="Facturas" component={Screens.FacturasScreen} />
+			<Stack.Screen name="ThreadDetail" component={Screens.ThreadDetailScreen} />
 			{/* IGNITE_GENERATOR_ANCHOR_APP_STACK_SCREENS */}
     </Stack.Navigator>
   )

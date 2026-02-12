@@ -40,7 +40,8 @@ import {
   CrearInformacionScreen,
   UsuariosScreen,
   UsuarioDetailScreen,
-  AdministracionScreen } from "../screens"
+  AdministracionScreen,
+  ThreadDetailScreen } from "../screens"
 import { colors, spacing, typography } from "../theme"
 import { AppStackParamList, AppStackScreenProps } from "./AppNavigator"
 
@@ -169,6 +170,22 @@ function ComunicacionStackScreen() {
           name="comunicacion"
           component={ComunicacionScreen}
           options={{ headerShown: false }}
+        />
+        <ComunicacionStack.Screen
+          name="ThreadDetail"
+          component={ThreadDetailScreen}
+          options={{
+            headerTitle: "Conversación",
+            headerStyle: {
+              backgroundColor: colors.palette.bluejeansLight,
+            },
+            headerTintColor: colors.palette.actionColor,
+            headerTitleStyle: {
+              fontWeight: 'bold',
+              fontSize: 16,
+              color: colors.palette.neutral100
+            },
+          }}
         />
         <GruposStack.Screen
           name="mensajeDetail"

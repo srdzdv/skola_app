@@ -1422,6 +1422,186 @@ export async function fetchEstudiantesByGrupos(gruposArr: string[]) {
     return results
 }
 
+// ============================================
+// Conversation Threads
+// ============================================
+
+/**
+ * Save a new anuncio that belongs to a thread.
+ * If threadId is provided, this message is a reply within an existing thread.
+ * If threadId is null, a new thread is created (the message becomes the root).
+ */
+export async function saveAnuncioWithThread(
+    params: Record<string, any>,
+    grupo: any,
+    estudianteId: string | null,
+    nivelGrupos: any[] | null,
+    threadId: string | null
+) {
+    const anuncioObjId = await saveAnuncioObject(params, grupo, estudianteId, nivelGrupos)
+
+    // Set the threadId on the newly created anuncio
+    const Anuncio = Parse.Object.extend("anuncio")
+    const query = new Parse.Query(Anuncio)
+    const anuncioObj = await query.get(anuncioObjId)
+
+    if (threadId != null) {
+        // This is a reply — link to the existing thread root
+        anuncioObj.set("threadId", threadId)
+    } else {
+        // This is a new thread — the message is its own root
+        anuncioObj.set("threadId", anuncioObjId)
+    }
+
+    await anuncioObj.save()
+    return anuncioObjId
+}
+
+/**
+ * Fetch conversation threads for the Comunicacion screen.
+ * Groups anuncios by threadId and returns one entry per thread
+ * (the root message) along with the latest reply timestamp and reply count.
+ */
+export async function fetchThreadsForComunicacion(escuelaId: string) {
+    try {
+        let escuelaObj = await fetchUserEscuela(escuelaId)
+
+        // Users of the school (parents)
+        const User = Parse.Object.extend("_User")
+        const userQuery = new Parse.Query(User)
+        userQuery.equalTo("escuela", escuelaObj)
+        userQuery.equalTo("status", 0)
+        userQuery.equalTo("usertype", 2)
+
+        // Fetch approved anuncios that have a threadId
+        const Anuncio = Parse.Object.extend("anuncio")
+        const query = new Parse.Query(Anuncio)
+        query.equalTo("aprobado", true)
+        query.notEqualTo("actionTaken", true)
+        query.matchesQuery("autor", userQuery)
+        query.exists("threadId")
+        query.include("autor")
+        query.include("tipo")
+        query.include("grupos")
+        query.include("estudiante")
+        query.descending("createdAt")
+        query.limit(200)
+
+        const results = await query.find()
+
+        // Group by threadId
+        const threadMap: Record<string, { root: any, latest: any, replyCount: number }> = {}
+
+        for (const anuncio of results) {
+            const tid = anuncio.get("threadId")
+            if (!tid) continue
+
+            if (!threadMap[tid]) {
+                threadMap[tid] = {
+                    root: anuncio,
+                    latest: anuncio,
+                    replyCount: 1
+                }
+            } else {
+                threadMap[tid].replyCount++
+                // Keep the most recent message as "latest"
+                if (anuncio.createdAt > threadMap[tid].latest.createdAt) {
+                    threadMap[tid].latest = anuncio
+                }
+                // Keep the oldest message as "root"
+                if (anuncio.createdAt < threadMap[tid].root.createdAt) {
+                    threadMap[tid].root = anuncio
+                }
+            }
+        }
+
+        // Also fetch non-threaded anuncios (backwards compatible)
+        const queryNonThreaded = new Parse.Query(Anuncio)
+        queryNonThreaded.equalTo("aprobado", true)
+        queryNonThreaded.notEqualTo("actionTaken", true)
+        queryNonThreaded.matchesQuery("autor", userQuery)
+        queryNonThreaded.doesNotExist("threadId")
+        queryNonThreaded.include("autor")
+        queryNonThreaded.include("tipo")
+        queryNonThreaded.include("grupos")
+        queryNonThreaded.include("estudiante")
+        queryNonThreaded.descending("createdAt")
+        queryNonThreaded.limit(35)
+
+        const nonThreadedResults = await queryNonThreaded.find()
+
+        // Build the combined list: threads + standalone messages
+        const threadEntries = Object.values(threadMap).map(t => ({
+            rootAnuncio: t.root,
+            latestAnuncio: t.latest,
+            replyCount: t.replyCount,
+            threadId: t.root.get("threadId"),
+            isThread: true,
+            sortDate: t.latest.createdAt
+        }))
+
+        const standaloneEntries = nonThreadedResults.map(a => ({
+            rootAnuncio: a,
+            latestAnuncio: a,
+            replyCount: 0,
+            threadId: null,
+            isThread: false,
+            sortDate: a.createdAt
+        }))
+
+        const allEntries = [...threadEntries, ...standaloneEntries]
+        allEntries.sort((a, b) => b.sortDate - a.sortDate)
+
+        return allEntries
+    } catch (error) {
+        console.error("Error in fetchThreadsForComunicacion:", error)
+        throw error
+    }
+}
+
+/**
+ * Fetch all messages within a specific conversation thread.
+ * Returns messages sorted chronologically (oldest first).
+ */
+export async function fetchThreadMessages(threadId: string) {
+    const Anuncio = Parse.Object.extend("anuncio")
+    const query = new Parse.Query(Anuncio)
+    query.equalTo("threadId", threadId)
+    query.include("autor")
+    query.include("tipo")
+    query.include("grupos")
+    query.include("estudiante")
+    query.ascending("createdAt")
+    query.limit(100)
+
+    const results = await query.find()
+
+    // Also fetch attachment photos for all messages in the thread
+    const AnuncioPhoto = Parse.Object.extend("AnuncioPhoto")
+    const photoQuery = new Parse.Query(AnuncioPhoto)
+    photoQuery.containedIn("anuncio", results)
+    photoQuery.descending("createdAt")
+    photoQuery.limit(200)
+    const photos = await photoQuery.find()
+
+    return {
+        messages: results,
+        photos: photos
+    }
+}
+
+/**
+ * Set the threadId on an existing anuncio (used to retroactively thread a message).
+ */
+export async function setAnuncioThreadId(anuncioId: string, threadId: string) {
+    const Anuncio = Parse.Object.extend("anuncio")
+    const query = new Parse.Query(Anuncio)
+    const anuncioObj = await query.get(anuncioId)
+    anuncioObj.set("threadId", threadId)
+    await anuncioObj.save()
+    return anuncioObj.id
+}
+
 export async function fetchFacturapiRFCs(estudianteId: string) {
     const Facturapi = Parse.Object.extend("Facturapi")
     const query = new Parse.Query(Facturapi)

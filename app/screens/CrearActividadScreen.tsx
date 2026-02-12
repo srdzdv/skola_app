@@ -123,6 +123,9 @@ export const CrearActividadScreen: FC<CrearActividadScreenProps> = observer(func
     },
   } = useStores()
 
+  // Thread support: if a threadId is passed, the new message will be linked to the thread
+  const [threadId, setThreadId] = useState<string | null>(null)
+
   useEffect(() => {
     getCurrentUserType()
     const actividadTypeParam = route.params["actividadType"]
@@ -143,6 +146,9 @@ export const CrearActividadScreen: FC<CrearActividadScreenProps> = observer(func
     }
     if (route.params["msgPreview"] != null) {
       onChangeText(route.params["msgPreview"])
+    }
+    if (route.params["threadId"] != null) {
+      setThreadId(route.params["threadId"])
     }
 
     let actividadTypeString = ""
@@ -397,7 +403,13 @@ export const CrearActividadScreen: FC<CrearActividadScreenProps> = observer(func
   }
 
   async function saveActividadToServer(params: Record<string, any>) {
-    const anuncioResult = await ParseAPI.saveAnuncioObject(params, grupo, estudianteId, nivelGrupos)
+    // Use thread-aware save for direct messages (actividadType 4)
+    let anuncioResult: string
+    if (actividadId === "4" || threadId != null) {
+      anuncioResult = await ParseAPI.saveAnuncioWithThread(params, grupo, estudianteId, nivelGrupos, threadId)
+    } else {
+      anuncioResult = await ParseAPI.saveAnuncioObject(params, grupo, estudianteId, nivelGrupos)
+    }
     if (anuncioResult.length === 10) {
       if (route.params.reloadList != null) {
         route.params.reloadList()

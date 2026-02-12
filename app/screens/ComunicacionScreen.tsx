@@ -57,6 +57,17 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
     if (authUsertype == 1) {
       fetchGruposForDocenteUser()
     } else {
+      // Try to fetch threads first, fall back to flat list
+      try {
+        const threadEntries = await ParseAPI.fetchThreadsForComunicacion(authUserEscuela)
+        if (threadEntries && threadEntries.length > 0) {
+          await processThreadsForTable(threadEntries)
+          return
+        }
+      } catch (e) {
+        console.log("Thread fetch not available, falling back to flat list")
+      }
+
       const resultObj = await ParseAPI.fetchAnunciosForComunicacion(authUserEscuela)
       const anunciosRes = resultObj.mainResultArr
       const attachmentsArr = resultObj.anuncioPhotoArr
@@ -116,6 +127,114 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
         processDataForTable(anunciosRes)
       }
     }
+  }
+
+  /**
+   * Process thread entries for the "Recibidos" tab.
+   * Each entry can be a thread (multiple messages) or a standalone message.
+   */
+  async function processThreadsForTable(entries: any[]) {
+    const tableArr: any[] = []
+
+    for (const entry of entries) {
+      const anuncio = entry.rootAnuncio
+      const latestAnuncio = entry.latestAnuncio
+      const replyCount = entry.replyCount
+      const isThread = entry.isThread
+
+      let autorStr = ""
+      const autorObj = anuncio.get('autor')
+      if (anuncio.get('estudiante') != null && autorObj != null) {
+        const estudianteObj = anuncio.get('estudiante')
+        const grupoObj = estudianteObj.get('grupo')
+        if (grupoObj) {
+          const grupoName = await fetchGrupoObj(grupoObj.id)
+          autorStr = grupoName + " - " + autorObj.get('parentesco') + " de " + estudianteObj.get('NOMBRE') + " " + estudianteObj.get('ApPATERNO')
+        }
+      }
+
+      let destino = ""
+      let estudianteId: string | null = null
+      if (anuncio.get('estudiante') != null) {
+        destino = anuncio.get('estudiante').get('NOMBRE')
+        estudianteId = anuncio.get('estudiante').id
+      } else if (anuncio.get('grupos') != null) {
+        const grupos = anuncio.get('grupos')
+        if (grupos.length > 6) {
+          destino = "Toda la escuela."
+        } else {
+          for (let j = 0; j < grupos.length; j++) {
+            const grupo = grupos[j]
+            if (grupo != null) {
+              const grupoId = grupo.get('grupoId')
+              if (grupoId) {
+                if (j == grupos.length - 1) {
+                  destino = destino + grupoId + "."
+                } else {
+                  destino = destino + grupoId + ", "
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Use the latest message's description as preview
+      let descripcion = ""
+      const latestDesc = latestAnuncio.get('descripcion')
+      if (latestDesc != null) {
+        descripcion = latestDesc
+        if (descripcion.length > 70) {
+          descripcion = descripcion.substring(0, 70)
+          if (descripcion.includes("\n")) {
+            descripcion = descripcion.replace("\n", " ")
+          }
+          descripcion = descripcion + "..."
+        }
+      }
+      const momentosData = latestAnuncio.get('momento')
+      if (momentosData != null) {
+        descripcion = "Momentos del Día"
+      }
+
+      // Build the subject from the root message
+      let threadSubject = ""
+      const rootDesc = anuncio.get('descripcion')
+      if (rootDesc) {
+        threadSubject = rootDesc.length > 40 ? rootDesc.substring(0, 40) + "..." : rootDesc
+      }
+
+      const dataItem = {
+        id: isThread ? entry.threadId : anuncio.id,
+        objectId: anuncio.id,
+        estudianteObj: anuncio.get('estudiante'),
+        tipo: "Mensaje",
+        timestamp: moment(entry.sortDate).format("dd DD/MMM"),
+        autor: autorObj,
+        autorName: autorStr,
+        destino: destino,
+        descripcionPreview: descripcion,
+        descripcion: anuncio.get('descripcion'),
+        momentosData: momentosData,
+        createdAt: entry.sortDate,
+        hasAttachment: anuncio.get('awsAttachment'),
+        anuncioSeen: true,
+        msgType: 0,
+        aprobado: anuncio.get('aprobado'),
+        // Thread-specific fields
+        isThread: isThread,
+        threadId: entry.threadId,
+        replyCount: replyCount,
+        threadSubject: threadSubject,
+        estudianteId: estudianteId,
+        grupoData: anuncio.get('grupos')?.[0] || null,
+      }
+
+      tableArr.push(dataItem)
+    }
+
+    setIsLoading(false)
+    setListData(tableArr)
   }
 
   async function processDataForTable(dataArr: any[]) {
@@ -202,7 +321,11 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
           hasAttachment: hasAttachment,
           anuncioSeen: true,
           msgType: currentIndex,
-          aprobado: anuncio.get('aprobado')
+          aprobado: anuncio.get('aprobado'),
+          // Non-threaded
+          isThread: false,
+          threadId: null,
+          replyCount: 0,
         }
 
         tableArr.push(dataItem)
@@ -312,8 +435,21 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
   }
 
   function handleCellPress(item: any) {
-    const params = { ...item, reloadTable }
-    navigation.navigate("mensajeDetail", params)
+    if (item.isThread && item.threadId) {
+      // Navigate to thread detail view
+      const threadParams = {
+        threadId: item.threadId,
+        threadSubject: item.threadSubject || item.descripcionPreview,
+        estudianteId: item.estudianteId || null,
+        grupoData: item.grupoData || null,
+        reloadTable: reloadTable,
+      }
+      navigation.navigate("ThreadDetail", threadParams)
+    } else {
+      // Navigate to single message detail (backwards compatible)
+      const params = { ...item, reloadTable }
+      navigation.navigate("mensajeDetail", params)
+    }
   }
 
   function reloadTable(msgType: number) {
@@ -361,7 +497,17 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
               topSeparator={false}
               bottomSeparator={true}
               onPress={() => handleCellPress(item)}
-              RightComponent={item.hasAttachment == true ? <Entypo name="attachment" size={20} color="#E9573F" style={$listItemRightComp} /> : null}
+              RightComponent={
+                <View style={$rightComponentContainer}>
+                  {item.isThread && item.replyCount > 1 ? (
+                    <View style={$threadBadge}>
+                      <Entypo name="chat" size={12} color="white" />
+                      <Text style={$threadBadgeText}>{item.replyCount}</Text>
+                    </View>
+                  ) : null}
+                  {item.hasAttachment == true ? <Entypo name="attachment" size={20} color="#E9573F" style={$listItemRightComp} /> : null}
+                </View>
+              }
             >
               {selectedIndex == 2 && <Text size="xs">{displayAprobadoStatus(item.aprobado) + " "}</Text>}
               <Text size="xs">{getDateFormatStr(item.createdAt) + "\n"}</Text>
@@ -426,4 +572,26 @@ const $listItemRightComp: ViewStyle = {
 
 const $autorText: TextStyle = {
   color: colors.palette.actionBlue,
+}
+
+const $rightComponentContainer: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+}
+
+const $threadBadge: ViewStyle = {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: colors.palette.bluejeansLight,
+  borderRadius: 12,
+  paddingHorizontal: 8,
+  paddingVertical: 3,
+  marginRight: 6,
+}
+
+const $threadBadgeText: TextStyle = {
+  color: "white",
+  fontSize: 12,
+  fontWeight: "bold",
+  marginLeft: 4,
 }
