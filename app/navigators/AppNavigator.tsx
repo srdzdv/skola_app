@@ -90,7 +90,7 @@ export type AppStackParamList = {
     threadId: string
     threadSubject?: string
     estudianteId?: string | null
-    grupoData?: any
+    grupoData?: any[] | null
     reloadTable?: (msgType: number) => void
   }
 	RegistroAlumno: undefined

@@ -406,7 +406,8 @@ export const CrearActividadScreen: FC<CrearActividadScreenProps> = observer(func
     // Use thread-aware save for direct messages (actividadType 4)
     let anuncioResult: string
     if (actividadId === "4" || threadId != null) {
-      anuncioResult = await ParseAPI.saveAnuncioWithThread(params, grupo, estudianteId, nivelGrupos, threadId)
+      const { id } = await ParseAPI.saveAnuncioWithThread(params, grupo, estudianteId, nivelGrupos, threadId)
+      anuncioResult = id
     } else {
       anuncioResult = await ParseAPI.saveAnuncioObject(params, grupo, estudianteId, nivelGrupos)
     }

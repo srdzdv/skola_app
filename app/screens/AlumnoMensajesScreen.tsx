@@ -31,6 +31,7 @@ interface MessageItem {
   anuncioSeen: boolean
   aprobado: boolean
   isCurrentUser: boolean
+  threadCount: number
 }
 
 // Memoized message item component
@@ -42,6 +43,7 @@ const MessageListItem = memo(function MessageListItem({
   hasAttachment,
   attachmentCount,
   isCurrentUser,
+  threadCount,
   onPress,
 }: {
   id: string
@@ -51,6 +53,7 @@ const MessageListItem = memo(function MessageListItem({
   hasAttachment: boolean
   attachmentCount: number
   isCurrentUser: boolean
+  threadCount: number
   onPress: (id: string) => void
 }) {
   const handlePress = useCallback(() => {
@@ -63,6 +66,7 @@ const MessageListItem = memo(function MessageListItem({
   const iconTintStyle = isCurrentUser ? styles.currentUserIcon : undefined
   const chevronColor = isCurrentUser ? "rgba(255, 255, 255, 0.7)" : "rgba(0, 0, 0, 0.5)"
   const badgeStyle = isCurrentUser ? styles.currentUserBadge : styles.otherUserBadge
+  const threadCountColor = isCurrentUser ? "rgba(255,255,255,0.7)" : "gray"
 
   return (
     <Pressable onPress={handlePress}>
@@ -71,6 +75,12 @@ const MessageListItem = memo(function MessageListItem({
         <View style={styles.messageFooter}>
           <Text style={[styles.messageDetails, detailsStyle]}>{autorName} • {timestamp}</Text>
           <View style={styles.iconContainer}>
+            {threadCount > 1 ? (
+              <View style={styles.threadIndicator}>
+                <Entypo name="chat" size={13} color={threadCountColor} />
+                <Text style={[styles.threadCountText, detailsStyle]}>{threadCount}</Text>
+              </View>
+            ) : null}
             {hasAttachment ? (
               <View style={styles.attachmentIndicator}>
                 <Image
@@ -168,8 +178,30 @@ export const AlumnoMensajesScreen: FC<AlumnoMensajesScreenProps> = observer(func
     const estudiantesArr: MessageItem[] = []
     const currentUserId = currentUserIdRef.current
 
+    // Build threadId -> count map and track which threadIds we've already added
+    const threadCountMap = new Map<string, number>()
+    for (const obj of anunciosArr) {
+      const threadId = obj.get('threadId')
+      if (threadId) {
+        threadCountMap.set(threadId, (threadCountMap.get(threadId) || 0) + 1)
+      }
+    }
+
+    // Filter to root messages only: for threaded messages keep only the root
+    // (where object.id === threadId). Non-threaded messages pass through.
+    const seenThreadIds = new Set<string>()
+
     for (let i = 0; i < anunciosArr.length; i++) {
       const object = anunciosArr[i]
+      const threadId = object.get('threadId')
+
+      if (threadId) {
+        // Skip non-root thread messages (replies)
+        if (object.id !== threadId) continue
+        // Skip if we already processed this thread root
+        if (seenThreadIds.has(threadId)) continue
+        seenThreadIds.add(threadId)
+      }
       let tipo = "Mensaje"
       if (object.get('tipo') != null) {
         tipo = object.get('tipo').get('nombre')
@@ -242,6 +274,8 @@ export const AlumnoMensajesScreen: FC<AlumnoMensajesScreenProps> = observer(func
       const attachmentCount = countAttachmentsForAnuncio(object.id)
       const hasAttachment = attachmentCount > 0
 
+      const threadCount = threadId ? (threadCountMap.get(threadId) || 0) : 0
+
       const dataItem: MessageItem = {
         id: object.id,
         objectId: object.id,
@@ -258,7 +292,8 @@ export const AlumnoMensajesScreen: FC<AlumnoMensajesScreenProps> = observer(func
         attachmentCount: attachmentCount,
         anuncioSeen: true,
         aprobado: object.get('aprobado'),
-        isCurrentUser: autorObj?.id === currentUserId
+        isCurrentUser: autorObj?.id === currentUserId,
+        threadCount: threadCount,
       }
       estudiantesArr.push(dataItem)
     }
@@ -314,6 +349,7 @@ export const AlumnoMensajesScreen: FC<AlumnoMensajesScreenProps> = observer(func
       hasAttachment={item.hasAttachment}
       attachmentCount={item.attachmentCount}
       isCurrentUser={item.isCurrentUser}
+      threadCount={item.threadCount}
       onPress={didSelectItem}
     />
   ), [didSelectItem])
@@ -395,6 +431,16 @@ const styles = StyleSheet.create({
   iconContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  threadIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 6,
+    gap: 3,
+  },
+  threadCountText: {
+    fontSize: 12,
+    color: 'gray',
   },
   attachmentIndicator: {
     flexDirection: 'row',

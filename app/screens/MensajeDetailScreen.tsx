@@ -8,11 +8,13 @@ import {
   View,
   StyleSheet,
   ViewStyle,
-  TextStyle,
   Dimensions,
   Platform,
   Alert,
   ScrollView,
+  FlatList,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native'
 import { NativeStackScreenProps } from "@react-navigation/native-stack"
 import { Entypo } from '@expo/vector-icons'
@@ -40,12 +42,31 @@ interface AttachmentData {
   thumbnailUrl?: string
 }
 
+interface ChatMessage {
+  id: string
+  objectId: string
+  descripcion: string
+  autorName: string
+  autorId: string
+  timestamp: string
+  createdAt: Date
+  isCurrentUser: boolean
+  attachments: AttachmentData[]
+  momentosData: any
+  estudianteObj: any
+  autor: any
+  destino: string
+  aprobado: boolean
+  tipo: string
+  msgType: number
+}
+
 // Helper function - hoisted outside component
 function getDateFormatStr(dateStr: string) {
   return moment(dateStr).format('ddd DD/MMM')
 }
 
-// Memoized thumbnail component for better performance
+// Memoized thumbnail component for detail mode
 const ImageThumbnail = memo(function ImageThumbnail({
   thumbnailUrl,
   onPress,
@@ -73,6 +94,96 @@ const ImageThumbnail = memo(function ImageThumbnail({
   )
 })
 
+// Memoized chat bubble component
+const ChatMessageBubble = memo(function ChatMessageBubble({
+  message,
+  isExpanded,
+  onPress,
+  onAttachmentPress,
+}: {
+  message: ChatMessage
+  isExpanded: boolean
+  onPress: (id: string) => void
+  onAttachmentPress: (attachment: AttachmentData) => void
+}) {
+  const handlePress = useCallback(() => {
+    onPress(message.id)
+  }, [message.id, onPress])
+
+  const isCurrentUser = message.isCurrentUser
+
+  return (
+    <Pressable onPress={handlePress}>
+      <View style={[chatStyles.bubbleContainer, isCurrentUser ? chatStyles.currentUserBubble : chatStyles.otherUserBubble]}>
+        {!isCurrentUser ? (
+          <Text style={chatStyles.bubbleAuthor} weight="semiBold">
+            {message.autorName}
+          </Text>
+        ) : null}
+        <Text style={[chatStyles.bubbleText, isCurrentUser ? chatStyles.currentUserText : undefined]}>
+          {message.descripcion}
+        </Text>
+        <View style={chatStyles.bubbleFooter}>
+          <Text style={[chatStyles.bubbleTimestamp, isCurrentUser ? chatStyles.currentUserDetails : undefined]}>
+            {message.timestamp}
+          </Text>
+          {message.attachments.length > 0 ? (
+            <View style={chatStyles.attachmentIndicator}>
+              <Entypo
+                name="attachment"
+                size={12}
+                color={isCurrentUser ? "rgba(255,255,255,0.7)" : "gray"}
+              />
+              {message.attachments.length > 1 ? (
+                <Text style={[chatStyles.attachmentCountText, isCurrentUser ? chatStyles.currentUserDetails : undefined]}>
+                  {" "}{message.attachments.length}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+        {/* Inline attachment gallery when expanded */}
+        {isExpanded && message.attachments.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={chatStyles.attachmentGallery}
+            contentContainerStyle={chatStyles.attachmentGalleryContent}
+          >
+            {message.attachments.map((att) => (
+              <Pressable
+                key={att.objectId}
+                onPress={() => onAttachmentPress(att)}
+                style={chatStyles.attachmentThumb}
+              >
+                {att.thumbnailUrl ? (
+                  <Image
+                    source={{ uri: att.thumbnailUrl }}
+                    style={chatStyles.attachmentImage}
+                    resizeMode="cover"
+                  />
+                ) : att.tipo === "PDF" ? (
+                  <View style={chatStyles.attachmentPlaceholder}>
+                    <MaterialCommunityIcons name="file-pdf-box" size={28} color={colors.palette.bittersweetLight} />
+                  </View>
+                ) : att.tipo === "VID" ? (
+                  <View style={chatStyles.attachmentPlaceholder}>
+                    <MaterialCommunityIcons name="play-circle" size={28} color={colors.palette.bluejeansLight} />
+                  </View>
+                ) : (
+                  <View style={chatStyles.attachmentPlaceholder}>
+                    <Entypo name="image" size={20} color={colors.palette.actionColor} />
+                  </View>
+                )}
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
+      </View>
+    </Pressable>
+  )
+})
+
 export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(function MensajeDetailScreen({ route, navigation }) {
   // Parse nav params once with useMemo to prevent re-parsing on every render
   const anuncioObj = useMemo(() => JSON.parse(JSON.stringify(route.params)), [route.params])
@@ -80,7 +191,6 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
   // Derived values from params
   const descripcion = anuncioObj.descripcion
   const anuncioObjId = anuncioObj.id ?? anuncioObj.objectId
-  // console.log("MensajeDetailScreen - anuncioObj keys:", Object.keys(anuncioObj), "id:", anuncioObj.id, "objectId:", anuncioObj.objectId)
   const createdAt = anuncioObj.createdAt
   const createdAtDisplay = useMemo(() => getDateFormatStr(createdAt), [createdAt])
   const userObj = anuncioObj.autor
@@ -93,11 +203,24 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
     return anuncioObj.autorName ?? userObj?.username ?? ""
   }, [anuncioObj.autorName, userObj])
 
+  // Mode determination
+  const chatMode = useMemo(() => {
+    return !anuncioObj._fromThreadDetail && !anuncioObj._fromActividadGrupo && anuncioObj.estudianteObj != null
+  }, [anuncioObj._fromThreadDetail, anuncioObj._fromActividadGrupo, anuncioObj.estudianteObj])
+
+  const chatThreadId = useMemo(() => {
+    return anuncioObj.threadId ?? anuncioObjId
+  }, [anuncioObj.threadId, anuncioObjId])
+
   // Use refs for mutable values that don't trigger re-renders
   const seenByDataRef = useRef<any[]>([])
   const aprobadoRef = useRef(anuncioObj.aprobado)
+  const flatListRef = useRef<FlatList>(null)
+  const photosRef = useRef<any[]>([])
+  const tipoAnuncioServerRef = useRef<any>(null)
+  const rootGruposRef = useRef<any[] | null>(null)
 
-  // State
+  // Detail mode state
   const [tipoAnuncio, setTipoAnuncio] = useState("")
   const [anuncioAutor, setAnuncioAutor] = useState(initialAutorName)
   const [anuncioDestino, setAnuncioDestino] = useState("")
@@ -107,9 +230,17 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
   const [anuncioDescripcion, setAnuncioDescripcion] = useState(descripcion)
   const [isAprobado, setIsAprobado] = useState(anuncioObj.aprobado)
 
+  // Chat mode state
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [replyText, setReplyText] = useState("")
+  const [isSending, setIsSending] = useState(false)
+  const [isChatLoading, setIsChatLoading] = useState(true)
+  const [expandedBubbleId, setExpandedBubbleId] = useState<string | null>(null)
+
   const {
     authenticationStore: {
-      authUserEscuela
+      authUserEscuela,
+      authUsertype,
     },
   } = useStores()
 
@@ -123,9 +254,243 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
   // Lifecycle
   useEffect(() => {
     setupComponents()
-    fetchAnuncioPhotos(anuncioObjId)
+    if (chatMode) {
+      loadChatMessages()
+    } else {
+      fetchAnuncioPhotos(anuncioObjId)
+    }
     getSeenByCount()
   }, [])
+
+  // ========== Chat mode functions ==========
+
+  const fetchResizedAttachment = useCallback(async (objectId: string): Promise<string | null> => {
+    const resizedPrefix = "resized-"
+    const resizedObjId = resizedPrefix + objectId
+    const signedURL = await AWSService.getSignedObjectUrl(resizedObjId)
+    return signedURL ?? null
+  }, [])
+
+  function getAttachmentsForMessage(messageId: string): AttachmentData[] {
+    const attachments: AttachmentData[] = []
+    for (const photo of photosRef.current) {
+      const anuncioInPhoto = photo.get("anuncio")
+      if (anuncioInPhoto && anuncioInPhoto.id === messageId) {
+        attachments.push({
+          objectId: photo.id,
+          tipo: photo.get("TipoArchivo"),
+          isNewBucket: photo.get("newS3Bucket"),
+          thumbnailUrl: undefined,
+        })
+      }
+    }
+    return attachments
+  }
+
+  function buildFallbackChatMessage(currentUser: any): ChatMessage {
+    return {
+      id: anuncioObjId,
+      objectId: anuncioObjId,
+      descripcion: descripcion || "",
+      autorName: initialAutorName,
+      autorId: userObj?.objectId || userObj?.id || "",
+      timestamp: moment(createdAt).format("ddd DD/MMM HH:mm"),
+      createdAt: new Date(createdAt),
+      isCurrentUser: (userObj?.objectId || userObj?.id) === currentUser?.id,
+      attachments: [],
+      momentosData: momentosData,
+      estudianteObj: anuncioObj.estudianteObj,
+      autor: userObj,
+      destino: anuncioObj.destino || "",
+      aprobado: anuncioObj.aprobado,
+      tipo: "Mensaje",
+      msgType: msgType ?? 0,
+    }
+  }
+
+  const loadChatMessages = useCallback(async () => {
+    setIsChatLoading(true)
+    try {
+      const currentUser = await ParseAPI.getCurrentUserObj()
+      const result = await ParseAPI.fetchThreadMessages(chatThreadId)
+      photosRef.current = result.photos
+
+      // Capture tipo and grupos from root message for replies
+      if (result.messages.length > 0) {
+        const rootMsg = result.messages[0]
+        tipoAnuncioServerRef.current = rootMsg.get("tipo")
+        rootGruposRef.current = rootMsg.get("grupos") || null
+      }
+
+      const processed: ChatMessage[] = []
+
+      if (result.messages.length === 0) {
+        // Fallback: show single bubble from route params
+        processed.push(buildFallbackChatMessage(currentUser))
+      } else {
+        for (const msg of result.messages) {
+          const autorObj = msg.get("autor")
+          let autorName = ""
+          if (autorObj) {
+            const usertype = autorObj.get("usertype")
+            if (usertype === 2) {
+              autorName = autorObj.get("parentesco") || autorObj.get("username")
+            } else {
+              autorName = autorObj.get("username")
+            }
+          }
+
+          let destino = ""
+          if (msg.get("estudiante")) {
+            destino = msg.get("estudiante").get("NOMBRE")
+          } else if (msg.get("grupos")) {
+            const grupos = msg.get("grupos")
+            if (grupos.length > 4) {
+              destino = "Toda la escuela"
+            } else {
+              destino = grupos.map((g: any) => g?.get?.("grupoId") || "").filter(Boolean).join(", ")
+            }
+          }
+
+          let msgDescripcion = msg.get("descripcion") || ""
+          const msgMomentos = msg.get("momento")
+          if (msgMomentos) {
+            msgDescripcion = "Momentos del Día"
+            if (msgMomentos.alimentosComentarios) {
+              msgDescripcion += "\n" + msgMomentos.alimentosComentarios
+            }
+          }
+
+          // Get attachments for this message
+          const msgAttachments = getAttachmentsForMessage(msg.id)
+
+          processed.push({
+            id: msg.id,
+            objectId: msg.id,
+            descripcion: msgDescripcion,
+            autorName,
+            autorId: autorObj?.id || "",
+            timestamp: moment(msg.createdAt).format("ddd DD/MMM HH:mm"),
+            createdAt: msg.createdAt,
+            isCurrentUser: autorObj?.id === currentUser.id,
+            attachments: msgAttachments,
+            momentosData: msgMomentos,
+            estudianteObj: msg.get("estudiante"),
+            autor: autorObj,
+            destino,
+            aprobado: msg.get("aprobado"),
+            tipo: msg.get("tipo")?.get?.("nombre") || "Mensaje",
+            msgType: 0,
+          })
+        }
+      }
+
+      // Fetch thumbnails for all attachments
+      for (const msg of processed) {
+        for (const att of msg.attachments) {
+          if (att.isNewBucket && !att.thumbnailUrl) {
+            const url = await fetchResizedAttachment(att.objectId)
+            if (url) att.thumbnailUrl = url
+          }
+        }
+      }
+
+      setChatMessages(processed)
+    } catch (error) {
+      console.error("Error loading chat messages:", error)
+      Alert.alert("Error", "No fue posible cargar los mensajes.")
+    } finally {
+      setIsChatLoading(false)
+    }
+  }, [chatThreadId])
+
+  const sendReply = useCallback(async () => {
+    if (replyText.trim().length === 0) return
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    setIsSending(true)
+
+    try {
+      const currentUser = await ParseAPI.getCurrentUserObj()
+      const isReplyAprobado = authUsertype !== 1
+
+      const params: Record<string, any> = {
+        aprobado: isReplyAprobado,
+        descripcion: replyText.trim(),
+        autor: currentUser,
+        awsAttachment: false,
+        materia: "",
+        sentFrom: "skolaRN_" + Platform.OS,
+      }
+
+      if (tipoAnuncioServerRef.current) {
+        params["tipo"] = tipoAnuncioServerRef.current
+      }
+
+      const gruposForReply = rootGruposRef.current
+      if (gruposForReply && gruposForReply.length > 0) {
+        params["grupos"] = gruposForReply
+      }
+
+      const estudianteId = anuncioObj.estudianteObj?.objectId || anuncioObj.estudianteObj?.id || null
+
+      const { id: anuncioId } = await ParseAPI.saveAnuncioWithThread(
+        params,
+        null,
+        estudianteId,
+        null,
+        chatThreadId,
+      )
+
+      if (anuncioId) {
+        let cloudFuncName = "adminApprovedAnuncio"
+        if (authUsertype === 1) {
+          cloudFuncName = "teacherAnuncioToBeApproved"
+        }
+        ParseAPI.runCloudCodeFunction(cloudFuncName, {
+          anuncioObjectId: anuncioId,
+          escuelaObjId: authUserEscuela,
+        })
+
+        setReplyText("")
+        await loadChatMessages()
+
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true })
+        }, 300)
+
+        route.params.reloadTable?.(msgType ?? 0)
+      } else {
+        Alert.alert("Error", "No fue posible enviar el mensaje.")
+      }
+    } catch (error) {
+      console.error("Error sending reply:", error)
+      Alert.alert("Error", "Ocurrió un error al enviar el mensaje.")
+    } finally {
+      setIsSending(false)
+    }
+  }, [replyText, chatThreadId, authUsertype, authUserEscuela, anuncioObj.estudianteObj])
+
+  const handleBubblePress = useCallback((messageId: string) => {
+    setExpandedBubbleId(prev => prev === messageId ? null : messageId)
+  }, [])
+
+  const handleBubbleAttachmentPress = useCallback((attachment: AttachmentData) => {
+    navigation.navigate('AttachmentDetail', attachment)
+  }, [navigation])
+
+  const renderChatMessage = useCallback(({ item }: { item: ChatMessage }) => (
+    <ChatMessageBubble
+      message={item}
+      isExpanded={expandedBubbleId === item.id}
+      onPress={handleBubblePress}
+      onAttachmentPress={handleBubbleAttachmentPress}
+    />
+  ), [expandedBubbleId, handleBubblePress, handleBubbleAttachmentPress])
+
+  const chatKeyExtractor = useCallback((item: ChatMessage) => item.id, [])
+
+  // ========== Shared / Detail mode functions ==========
 
   const setupComponents = useCallback(() => {
     let showResponderBttn = true
@@ -143,7 +508,22 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
     navigation.setOptions({
       headerBackTitleVisible: false,
     })
-    if (showResponderBttn) {
+
+    if (chatMode) {
+      // Chat mode: show dots menu for additional actions (no Responder needed)
+      navigation.setOptions({
+        headerRight: () => (
+          <MaterialCommunityIcons
+            name="dots-horizontal-circle-outline"
+            size={28}
+            style={styles.headerRightIcon}
+            color={colors.palette.actionColor}
+            onPress={headerRightBttnPressed}
+          />
+        ),
+      })
+    } else if (showResponderBttn) {
+      // Detail mode: original header setup
       if (msgType === 2) {
         navigation.setOptions({
           headerBackTitleVisible: false,
@@ -175,7 +555,7 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
     if (momentosData != null) {
       processMomento(momentosData)
     }
-  }, [anuncioObj, msgType, momentosData, navigation])
+  }, [anuncioObj, msgType, momentosData, navigation, chatMode])
 
   const getSeenByCount = useCallback(async () => {
     const seenByRes = await ParseAPI.fetchSeenBy(anuncioObjId)
@@ -249,7 +629,7 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
     if (msgType != null) {
       switch (msgType) {
         case 0:
-          alertActionsArr.push(responder)
+          if (!chatMode) alertActionsArr.push(responder)
           alertActionsArr.push(archivar)
           break
         case 1:
@@ -268,9 +648,12 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
         default:
           break
       }
+    } else if (chatMode) {
+      // Messages without msgType (e.g. from AlumnoMensajes) — add archivar
+      alertActionsArr.push(archivar)
     }
     Alert.alert('Opciones Adicionales', 'Selecciona la accion que deseas ejecutar:', alertActionsArr)
-  }, [msgType])
+  }, [msgType, chatMode])
 
   const reloadActividadList = useCallback(() => {
     // Placeholder for reload functionality
@@ -279,15 +662,19 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
   const responderAction = useCallback(() => {
     const estudiante = anuncioObj.estudianteObj
     Haptics.notificationAsync()
+    // Use existing threadId if available, otherwise use this message's id
+    // so the reply links to this message as the thread root
+    const replyThreadId = anuncioObj.threadId ?? anuncioObjId
     const actividadParams = {
       actividadType: 4,
       grupoName: estudiante.NOMBRE + " " + estudiante.APELLIDO,
       grupoId: null,
       estudianteId: estudiante.objectId,
+      threadId: replyThreadId,
       reloadList: reloadActividadList
     }
     navigation.navigate("CrearActividad", actividadParams)
-  }, [anuncioObj.estudianteObj, navigation, reloadActividadList])
+  }, [anuncioObj.estudianteObj, anuncioObj.threadId, anuncioObjId, navigation, reloadActividadList])
 
   const archivarAction = useCallback(async () => {
     const res = await ParseAPI.archivarAnuncio(anuncioObjId)
@@ -341,14 +728,7 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
     setTipoAnuncio(tipoAnuncioNombre)
   }, [])
 
-  const fetchResizedAttachment = useCallback(async (objectId: string): Promise<string | null> => {
-    const resizedPrefix = "resized-"
-    const resizedObjId = resizedPrefix + objectId
-    const signedURL = await AWSService.getSignedObjectUrl(resizedObjId)
-    return signedURL ?? null
-  }, [])
-
-  // Fetch ALL photos for the anuncio (supports multiple images)
+  // Fetch ALL photos for the anuncio (detail mode only)
   const fetchAnuncioPhotos = useCallback(async (anuncioId: string) => {
     if (attachmentsData.length === 0) {
       const results = await ParseAPI.fetchAnuncioPhotos(anuncioId)
@@ -403,14 +783,106 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
   }, [])
 
   const openAttachmentBtnPressed = useCallback((attachment: AttachmentData) => {
-    navigation.navigate('attachmentDetail', attachment)
+    navigation.navigate('AttachmentDetail', attachment)
   }, [navigation])
 
   const displayAprobadoStatus = useCallback((aprobadoVal: boolean) => {
     return aprobadoVal === true ? "Aprobado" : "Por aprobar"
   }, [])
 
-  // Derived values
+  // ========== Render ==========
+
+  // Chat mode render
+  if (chatMode) {
+    const chatDestino = anuncioDestino || anuncioObj.destino || ""
+
+    return (
+      <Screen
+        style={$chatRoot}
+        preset="fixed"
+        contentContainerStyle={$chatContentContainer}
+        KeyboardAvoidingViewProps={{ keyboardVerticalOffset: 90 }}
+      >
+        {isChatLoading ? (
+          <View style={chatStyles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.palette.actionBlue} />
+          </View>
+        ) : (
+          <View style={chatStyles.chatContainer}>
+            {/* Info bar */}
+            <View style={chatStyles.infoBar}>
+              <View style={chatStyles.infoBarLeft}>
+                <Text style={chatStyles.infoBarName} weight="semiBold">
+                  {chatDestino}
+                </Text>
+                <Text style={chatStyles.infoBarDate}>
+                  {anuncioCreatedAt}
+                </Text>
+              </View>
+              <Text style={chatStyles.infoBarCount}>
+                {chatMessages.length} {chatMessages.length === 1 ? "mensaje" : "mensajes"}
+              </Text>
+            </View>
+
+            {/* Chat messages */}
+            <FlatList
+              ref={flatListRef}
+              data={chatMessages}
+              renderItem={renderChatMessage}
+              keyExtractor={chatKeyExtractor}
+              style={chatStyles.messagesList}
+              contentContainerStyle={chatStyles.messagesContent}
+              onContentSizeChange={() =>
+                flatListRef.current?.scrollToEnd({ animated: false })
+              }
+            />
+
+            {/* Reply input */}
+            <View style={chatStyles.replyContainer}>
+              <TextInput
+                style={chatStyles.replyInput}
+                value={replyText}
+                onChangeText={setReplyText}
+                placeholder="Escribe tu respuesta..."
+                placeholderTextColor={colors.palette.neutral400}
+                multiline
+                maxLength={2000}
+                editable={!isSending}
+              />
+              {isSending ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.palette.actionBlue}
+                  style={chatStyles.sendButton}
+                />
+              ) : (
+                <Pressable
+                  onPress={sendReply}
+                  style={[
+                    chatStyles.sendButton,
+                    replyText.trim().length === 0 ? chatStyles.sendButtonDisabled : null,
+                  ]}
+                  disabled={replyText.trim().length === 0}
+                >
+                  <Entypo
+                    name="paper-plane"
+                    size={22}
+                    color={
+                      replyText.trim().length === 0
+                        ? colors.palette.neutral400
+                        : colors.palette.actionBlue
+                    }
+                  />
+                </Pressable>
+              )}
+            </View>
+          </View>
+        )}
+      </Screen>
+    )
+  }
+
+  // Detail mode render (original, unchanged)
   const hasMultipleAttachments = attachmentsData.length > 1
   const hasSingleAttachment = attachmentsData.length === 1
   const firstAttachment = attachmentsData[0]
@@ -533,11 +1005,23 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
   )
 })
 
+// ========== Styles ==========
+
 const $root: ViewStyle = {
   flex: 1,
   backgroundColor: colors.palette.bluejeansLight,
 }
 
+const $chatRoot: ViewStyle = {
+  flex: 1,
+  backgroundColor: colors.palette.bluejeansClear,
+}
+
+const $chatContentContainer: ViewStyle = {
+  flex: 1,
+}
+
+// Detail mode styles (original)
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -741,5 +1225,157 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+})
+
+// Chat mode styles
+const chatStyles = StyleSheet.create({
+  chatContainer: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  infoBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: colors.palette.bluejeansLight,
+  },
+  infoBarLeft: {
+    flex: 1,
+    marginRight: 8,
+  },
+  infoBarName: {
+    color: "white",
+    fontSize: 14,
+  },
+  infoBarDate: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  infoBarCount: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 12,
+  },
+  messagesList: {
+    flex: 1,
+  },
+  messagesContent: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  bubbleContainer: {
+    maxWidth: "80%",
+    borderRadius: 16,
+    borderCurve: "continuous",
+    padding: 12,
+    marginBottom: 8,
+  },
+  currentUserBubble: {
+    alignSelf: "flex-end",
+    backgroundColor: colors.palette.actionBlue,
+    marginRight: 8,
+    borderBottomRightRadius: 4,
+  },
+  otherUserBubble: {
+    alignSelf: "flex-start",
+    backgroundColor: "white",
+    marginLeft: 8,
+    borderBottomLeftRadius: 4,
+  },
+  bubbleAuthor: {
+    fontSize: 12,
+    color: colors.palette.bluejeansLight,
+    marginBottom: 4,
+  },
+  bubbleText: {
+    fontSize: 16,
+    color: "black",
+  },
+  currentUserText: {
+    color: "white",
+  },
+  bubbleFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 6,
+  },
+  bubbleTimestamp: {
+    fontSize: 11,
+    color: "gray",
+  },
+  currentUserDetails: {
+    color: "rgba(255,255,255,0.7)",
+  },
+  attachmentIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  attachmentCountText: {
+    fontSize: 11,
+    color: "gray",
+  },
+  attachmentGallery: {
+    marginTop: 8,
+  },
+  attachmentGalleryContent: {
+    gap: 8,
+  },
+  attachmentThumb: {
+    borderRadius: 8,
+    borderCurve: "continuous",
+    overflow: "hidden",
+  },
+  attachmentImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    borderCurve: "continuous",
+  },
+  attachmentPlaceholder: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    borderCurve: "continuous",
+    backgroundColor: colors.palette.neutral200,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  replyContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "white",
+    borderTopWidth: 1,
+    borderTopColor: colors.palette.neutral300,
+  },
+  replyInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
+    borderRadius: 20,
+    borderCurve: "continuous",
+    backgroundColor: colors.palette.neutral200,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
+    fontSize: 16,
+    color: colors.palette.neutral800,
+  },
+  sendButton: {
+    marginLeft: 8,
+    marginBottom: 4,
+    padding: 8,
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
   },
 })

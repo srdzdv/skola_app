@@ -54,20 +54,28 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
 
   async function fetchAnunciosFromServer() {
     setListData([])
+    // Try to fetch threads first, fall back to flat list
+    try {
+      let grupoIds: string[] | undefined
+      if (authUsertype == 1) {
+        // Docente: scope threads to their grupos
+        const escuelaObj = await ParseAPI.fetchUserEscuela(authUserEscuela)
+        const userGrupos = await ParseAPI.fetchGrupos(escuelaObj)
+        grupoIds = userGrupos.map((g: any) => g.id)
+      }
+      const threadEntries = await ParseAPI.fetchThreadsForComunicacion(authUserEscuela, grupoIds)
+      if (threadEntries && threadEntries.length > 0) {
+        await processThreadsForTable(threadEntries)
+        return
+      }
+    } catch (e) {
+      console.error("Thread fetch failed, falling back to flat list:", e)
+    }
+
+    // Fallback to flat list
     if (authUsertype == 1) {
       fetchGruposForDocenteUser()
     } else {
-      // Try to fetch threads first, fall back to flat list
-      try {
-        const threadEntries = await ParseAPI.fetchThreadsForComunicacion(authUserEscuela)
-        if (threadEntries && threadEntries.length > 0) {
-          await processThreadsForTable(threadEntries)
-          return
-        }
-      } catch (e) {
-        console.log("Thread fetch not available, falling back to flat list")
-      }
-
       const resultObj = await ParseAPI.fetchAnunciosForComunicacion(authUserEscuela)
       const anunciosRes = resultObj.mainResultArr
       const attachmentsArr = resultObj.anuncioPhotoArr
@@ -107,7 +115,12 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
       const attachmentsArr = resultObj.anuncioPhotoArr
       anunciosPhotoArrRef.current = attachmentsArr
       if (anunciosRes != null) {
-        processDataForTable(anunciosRes)
+        const threadEntries = ParseAPI.groupAnunciosByThread(anunciosRes)
+        if (threadEntries.length > 0) {
+          await processThreadsForTable(threadEntries)
+        } else {
+          processDataForTable(anunciosRes)
+        }
       }
     } else {
       setIsLoading(false)
@@ -116,14 +129,17 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
 
   async function fetchAnunciosEnviados() {
     setListData([])
+    let anunciosRes: any[] | null = null
     if (authUsertype == 0) {
-      const anunciosRes = await ParseAPI.fetchAnunciosEnviados(authUserEscuela)
-      if (anunciosRes != null) {
-        processDataForTable(anunciosRes)
-      }
+      anunciosRes = await ParseAPI.fetchAnunciosEnviados(authUserEscuela)
     } else {
-      const anunciosRes = await ParseAPI.fetchAnunciosEnviadosDocente(authUserEscuela, authUserId)
-      if (anunciosRes != null) {
+      anunciosRes = await ParseAPI.fetchAnunciosEnviadosDocente(authUserEscuela, authUserId)
+    }
+    if (anunciosRes != null) {
+      const threadEntries = ParseAPI.groupAnunciosByThread(anunciosRes)
+      if (threadEntries.length > 0) {
+        await processThreadsForTable(threadEntries)
+      } else {
         processDataForTable(anunciosRes)
       }
     }
@@ -204,6 +220,12 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
         threadSubject = rootDesc.length > 40 ? rootDesc.substring(0, 40) + "..." : rootDesc
       }
 
+      // Check both root and latest reply for attachment (parents app may
+      // attach images to replies, not just root messages)
+      const rootHasAttachment = anuncio.get('awsAttachment')
+      const latestHasAttachment = latestAnuncio.get('awsAttachment')
+      const hasAttachment = rootHasAttachment || latestHasAttachment
+
       const dataItem = {
         id: isThread ? entry.threadId : anuncio.id,
         objectId: anuncio.id,
@@ -217,9 +239,9 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
         descripcion: anuncio.get('descripcion'),
         momentosData: momentosData,
         createdAt: entry.sortDate,
-        hasAttachment: anuncio.get('awsAttachment'),
+        hasAttachment: hasAttachment,
         anuncioSeen: true,
-        msgType: 0,
+        msgType: currentIndexRef.current,
         aprobado: anuncio.get('aprobado'),
         // Thread-specific fields
         isThread: isThread,
@@ -227,7 +249,7 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
         replyCount: replyCount,
         threadSubject: threadSubject,
         estudianteId: estudianteId,
-        grupoData: anuncio.get('grupos')?.[0] || null,
+        grupoData: anuncio.get('grupos') || null,
       }
 
       tableArr.push(dataItem)

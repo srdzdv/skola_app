@@ -172,7 +172,7 @@ export const ActividadGrupoScreen: FC<ActividadGrupoScreenProps> = observer(func
   }
 
   const handleCellPress = useCallback((item: any) => {
-    navigation.navigate("mensajeDetail", item)
+    navigation.navigate("mensajeDetail", { ...item, _fromActividadGrupo: true })
   }, [navigation])
 
   const renderItem = useCallback(({ item }: { item: any }) => (
