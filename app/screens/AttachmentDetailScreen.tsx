@@ -254,7 +254,7 @@ const $topContainer: ViewStyle = {
   flexDirection: 'row',
   justifyContent: 'space-between',
   paddingTop: SCREEN_PADDING_TOP,
-  marginTop: 20,
+  marginTop: 40,
 }
 
 const $backButton: ViewStyle = {

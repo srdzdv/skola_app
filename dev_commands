@@ -1,0 +1,2 @@
+eas build --platform ios --local
+xcrun altool --upload-app -f ipaHere -type ios -u srdzdv@gmail.com -p lzgo-imsf-nyml-lhky

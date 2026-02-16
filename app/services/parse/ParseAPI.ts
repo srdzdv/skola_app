@@ -1599,15 +1599,43 @@ export async function fetchThreadsForComunicacion(escuelaId: string, grupoIds?: 
 
         const filteredNonThreaded = nonThreadedResults.filter(filterByGrupos)
 
+        // Fetch AnuncioPhoto records to determine which messages have attachments
+        // Use matchesQuery with objectId list (server-side subquery) instead of
+        // containedIn with Parse objects, which can fail for pointer fields
+        const allFetchedAnuncios = [...results, ...filteredNonThreaded]
+        const anuncioIds = allFetchedAnuncios.map(a => a.id)
+        const innerPhotoQuery = new Parse.Query(Anuncio)
+        innerPhotoQuery.containedIn("objectId", anuncioIds)
+
+        const AnuncioPhoto = Parse.Object.extend("AnuncioPhoto")
+        const photoQuery = new Parse.Query(AnuncioPhoto)
+        photoQuery.matchesQuery("anuncio", innerPhotoQuery)
+        photoQuery.limit(500)
+        const photos = await photoQuery.find()
+
+        const anuncioIdsWithPhotos = new Set<string>()
+        for (const photo of photos) {
+            const anuncioRef = photo.get("anuncio")
+            if (anuncioRef) anuncioIdsWithPhotos.add(anuncioRef.id)
+        }
+
         // Build the combined list: threads + standalone messages
-        const threadEntries = Object.values(threadMap).map(t => ({
-            rootAnuncio: t.root,
-            latestAnuncio: t.latest,
-            replyCount: t.replyCount,
-            threadId: t.root.get("threadId"),
-            isThread: true,
-            sortDate: t.latest.createdAt
-        }))
+        const threadEntries = Object.values(threadMap).map(t => {
+            const tid = t.root.get("threadId")
+            const threadAnuncios = results.filter(a => a.get("threadId") === tid)
+            const hasAttachment = threadAnuncios.some(a =>
+                a.get("awsAttachment") || anuncioIdsWithPhotos.has(a.id)
+            )
+            return {
+                rootAnuncio: t.root,
+                latestAnuncio: t.latest,
+                replyCount: t.replyCount,
+                threadId: tid,
+                isThread: true,
+                sortDate: t.latest.createdAt,
+                hasAttachment: hasAttachment,
+            }
+        })
 
         const standaloneEntries = filteredNonThreaded.map(a => ({
             rootAnuncio: a,
@@ -1615,7 +1643,8 @@ export async function fetchThreadsForComunicacion(escuelaId: string, grupoIds?: 
             replyCount: 0,
             threadId: null,
             isThread: false,
-            sortDate: a.createdAt
+            sortDate: a.createdAt,
+            hasAttachment: !!(a.get("awsAttachment") || anuncioIdsWithPhotos.has(a.id)),
         }))
 
         const allEntries = [...threadEntries, ...standaloneEntries]
@@ -1647,13 +1676,31 @@ export async function fetchThreadMessages(threadId: string) {
 
         const results = await query.find()
 
-        // Also fetch attachment photos for all messages in the thread
-        const AnuncioPhoto = Parse.Object.extend("AnuncioPhoto")
-        const photoQuery = new Parse.Query(AnuncioPhoto)
-        photoQuery.containedIn("anuncio", results)
-        photoQuery.descending("createdAt")
-        photoQuery.limit(200)
-        const photos = await photoQuery.find()
+        // Fetch attachment photos using the same matchesQuery pattern
+        // proven to work in fetchAnuncioPhotos — match by objectId list
+        let photos: any[] = []
+
+        if (results.length > 0) {
+            const messageIds = results.map(msg => msg.id)
+            const innerQuery = new Parse.Query(Anuncio)
+            innerQuery.containedIn("objectId", messageIds)
+
+            const AnuncioPhoto = Parse.Object.extend("AnuncioPhoto")
+            const photoQuery = new Parse.Query(AnuncioPhoto)
+            photoQuery.matchesQuery("anuncio", innerQuery)
+            photoQuery.descending("createdAt")
+            photoQuery.limit(200)
+            photos = await photoQuery.find()
+
+            // Fallback: if bulk query returned nothing, fetch per-message
+            // using the exact pattern from fetchAnuncioPhotos (proven to work)
+            if (photos.length === 0) {
+                for (const msg of results) {
+                    const perMsgPhotos = await fetchAnuncioPhotos(msg.id)
+                    photos.push(...perMsgPhotos)
+                }
+            }
+        }
 
         return {
             messages: results,

@@ -1,7 +1,7 @@
 import React, { FC, useEffect, useState, useCallback, useRef, memo } from "react"
 import { observer } from "mobx-react-lite"
 import * as ParseAPI from "../services/parse/ParseAPI"
-import { getSignedObjectUrl } from "../services/AWSService"
+import { getSignedObjectUrl, getS3FileSignedURL } from "../services/AWSService"
 import {
   ViewStyle,
   View,
@@ -15,7 +15,7 @@ import {
 } from "react-native"
 import { Image } from "expo-image"
 import { NativeStackScreenProps } from "@react-navigation/native-stack"
-import { Entypo } from "@expo/vector-icons"
+import { Entypo, MaterialCommunityIcons } from "@expo/vector-icons"
 import { AppStackScreenProps } from "app/navigators"
 import { Screen, Text } from "app/components"
 import { colors } from "../theme"
@@ -39,6 +39,7 @@ interface ThreadMessage {
   hasAttachment: boolean
   attachmentCount: number
   firstPhotoId: string | null
+  firstPhotoTipo: string
   isNewBucket: boolean
   thumbnailUrl: string | null
   momentosData: any
@@ -59,6 +60,7 @@ const MessageBubble = memo(function MessageBubble({
   hasAttachment,
   attachmentCount,
   thumbnailUrl,
+  firstPhotoTipo,
   onPress,
   id,
 }: {
@@ -69,6 +71,7 @@ const MessageBubble = memo(function MessageBubble({
   hasAttachment: boolean
   attachmentCount: number
   thumbnailUrl: string | null
+  firstPhotoTipo: string
   onPress: (id: string) => void
   id: string
 }) {
@@ -111,7 +114,13 @@ const MessageBubble = memo(function MessageBubble({
           </View>
         ) : hasAttachment && !thumbnailUrl ? (
           <View style={styles.thumbnailPlaceholder}>
-            <ActivityIndicator size="small" color={isCurrentUser ? "white" : colors.palette.actionBlue} />
+            {firstPhotoTipo === "PDF" ? (
+              <MaterialCommunityIcons name="file-pdf-box" size={32} color={isCurrentUser ? "rgba(255,255,255,0.8)" : colors.palette.bittersweetLight} />
+            ) : firstPhotoTipo === "VID" ? (
+              <MaterialCommunityIcons name="play-circle" size={32} color={isCurrentUser ? "rgba(255,255,255,0.8)" : colors.palette.bluejeansLight} />
+            ) : (
+              <ActivityIndicator size="small" color={isCurrentUser ? "white" : "gray"} />
+            )}
           </View>
         ) : null}
         {showText ? (
@@ -234,6 +243,7 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
 
           // Get attachment data for this message
           const photoData = getPhotoData(msg.id)
+          const awsAttachmentFlag = !!msg.get("awsAttachment")
 
           processed.push({
             id: msg.id,
@@ -244,9 +254,10 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
             timestamp: moment(msg.createdAt).format("ddd DD/MMM HH:mm"),
             createdAt: msg.createdAt,
             isCurrentUser: autorObj?.id === currentUser.id,
-            hasAttachment: photoData.count > 0,
-            attachmentCount: photoData.count,
+            hasAttachment: photoData.count > 0 || awsAttachmentFlag,
+            attachmentCount: photoData.count > 0 ? photoData.count : (awsAttachmentFlag ? 1 : 0),
             firstPhotoId: photoData.firstPhotoId,
+            firstPhotoTipo: photoData.firstPhotoTipo,
             isNewBucket: photoData.isNewBucket,
             thumbnailUrl: null,
             momentosData,
@@ -273,42 +284,72 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
       }
     }
 
-    function getPhotoData(anuncioId: string): { count: number; firstPhotoId: string | null; isNewBucket: boolean } {
+    function getPhotoData(anuncioId: string): { count: number; firstPhotoId: string | null; isNewBucket: boolean; firstPhotoTipo: string } {
       let count = 0
       let firstPhotoId: string | null = null
       let isNewBucket = false
+      let firstPhotoTipo = "JPG"
       for (const photo of photosRef.current) {
         const anuncioInPhoto = photo.get("anuncio")
         if (anuncioInPhoto && anuncioInPhoto.id === anuncioId) {
           if (count === 0) {
             firstPhotoId = photo.id
             isNewBucket = !!photo.get("newS3Bucket")
+            firstPhotoTipo = photo.get("TipoArchivo") || "JPG"
           }
           count++
         }
       }
-      return { count, firstPhotoId, isNewBucket }
+      return { count, firstPhotoId, isNewBucket, firstPhotoTipo }
     }
 
     async function loadThumbnails(viewModels: ThreadMessage[]) {
       const updated = [...viewModels]
-      const promises: Promise<void>[] = []
 
+      // First pass: resolve messages with awsAttachment but no firstPhotoId
       for (const msg of updated) {
-        if (msg.firstPhotoId && msg.isNewBucket && !msg.thumbnailUrl) {
+        if (msg.hasAttachment && !msg.firstPhotoId) {
+          try {
+            const photos = await ParseAPI.fetchAnuncioPhotos(msg.objectId)
+            if (photos && photos.length > 0) {
+              const photo = photos[0]
+              msg.firstPhotoId = photo.id
+              msg.firstPhotoTipo = photo.get("TipoArchivo") || "JPG"
+              msg.isNewBucket = !!photo.get("newS3Bucket")
+              msg.attachmentCount = photos.length
+              // Store in photosRef so handleMessagePress can find them
+              photosRef.current.push(...photos)
+            }
+          } catch { /* leave as-is */ }
+        }
+      }
+
+      // Second pass: fetch thumbnail URLs for image attachments
+      const promises: Promise<void>[] = []
+      for (const msg of updated) {
+        if (msg.firstPhotoId && !msg.thumbnailUrl && msg.firstPhotoTipo === "JPG") {
           const photoId = msg.firstPhotoId
-          promises.push(
-            getSignedObjectUrl("resized-" + photoId)
-              .then((url) => { msg.thumbnailUrl = url })
-              .catch(() => { /* thumbnail not available, leave null */ })
-          )
+          if (msg.isNewBucket) {
+            promises.push(
+              getSignedObjectUrl("resized-" + photoId)
+                .then((url) => { msg.thumbnailUrl = url })
+                .catch(() => { /* thumbnail not available, leave null */ })
+            )
+          } else {
+            // Old bucket: get signed URL for original (no resized version)
+            promises.push(
+              getS3FileSignedURL(photoId)
+                .then((url) => { msg.thumbnailUrl = url })
+                .catch(() => { /* thumbnail not available, leave null */ })
+            )
+          }
         }
       }
 
       if (promises.length > 0) {
-        await Promise.all(promises)
-        setMessages(updated)
+        await Promise.allSettled(promises)
       }
+      setMessages([...updated])
     }
 
     const sendReply = useCallback(async () => {
@@ -400,14 +441,28 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
           try {
             navigation.navigate("AttachmentDetail", {
               objectId: msg.firstPhotoId,
-              tipo: "JPG",
+              tipo: msg.firstPhotoTipo,
               isNewBucket: msg.isNewBucket,
             })
           } catch (error) {
             console.error("Error navigating to attachment:", error)
           }
-        } else if (!msg.hasAttachment) {
-          // No-op for messages without attachments (same as parents app)
+        } else if (msg.hasAttachment && !msg.firstPhotoId) {
+          // awsAttachment flag is true but no AnuncioPhoto was found in bulk query
+          // Try fetching on-demand for this specific message
+          try {
+            const photos = await ParseAPI.fetchAnuncioPhotos(msg.objectId)
+            if (photos && photos.length > 0) {
+              const photo = photos[0]
+              navigation.navigate("AttachmentDetail", {
+                objectId: photo.id,
+                tipo: photo.get("TipoArchivo") || "JPG",
+                isNewBucket: !!photo.get("newS3Bucket"),
+              })
+            }
+          } catch (error) {
+            console.error("Error fetching attachment on-demand:", error)
+          }
         }
       },
       [messages, navigation],
@@ -424,6 +479,7 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
           hasAttachment={item.hasAttachment}
           attachmentCount={item.attachmentCount}
           thumbnailUrl={item.thumbnailUrl}
+          firstPhotoTipo={item.firstPhotoTipo}
           onPress={handleMessagePress}
         />
       ),

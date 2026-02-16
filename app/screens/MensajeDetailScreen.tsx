@@ -142,8 +142,8 @@ const ChatMessageBubble = memo(function ChatMessageBubble({
             </View>
           ) : null}
         </View>
-        {/* Inline attachment gallery when expanded */}
-        {isExpanded && message.attachments.length > 0 ? (
+        {/* Inline attachment gallery */}
+        {message.attachments.length > 0 ? (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -326,7 +326,13 @@ export const MensajeDetailScreen: FC<MensajeDetailScreenProps> = observer(functi
 
       if (result.messages.length === 0) {
         // Fallback: show single bubble from route params
-        processed.push(buildFallbackChatMessage(currentUser))
+        // Fetch photos for this message since fetchThreadMessages didn't find it
+        const fallbackPhotos = await ParseAPI.fetchAnuncioPhotos(anuncioObjId)
+        photosRef.current = fallbackPhotos
+
+        const fallbackMsg = buildFallbackChatMessage(currentUser)
+        fallbackMsg.attachments = getAttachmentsForMessage(anuncioObjId)
+        processed.push(fallbackMsg)
       } else {
         for (const msg of result.messages) {
           const autorObj = msg.get("autor")

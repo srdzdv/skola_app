@@ -220,11 +220,9 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
         threadSubject = rootDesc.length > 40 ? rootDesc.substring(0, 40) + "..." : rootDesc
       }
 
-      // Check both root and latest reply for attachment (parents app may
-      // attach images to replies, not just root messages)
-      const rootHasAttachment = anuncio.get('awsAttachment')
-      const latestHasAttachment = latestAnuncio.get('awsAttachment')
-      const hasAttachment = rootHasAttachment || latestHasAttachment
+      // Use pre-computed attachment flag from API (includes AnuncioPhoto table check)
+      // Fall back to checking awsAttachment field for backwards compatibility
+      const hasAttachment = entry.hasAttachment || anuncio.get('awsAttachment') || latestAnuncio.get('awsAttachment')
 
       const dataItem = {
         id: isThread ? entry.threadId : anuncio.id,
