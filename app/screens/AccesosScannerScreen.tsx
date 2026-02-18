@@ -45,6 +45,7 @@ export const AccesosScannerScreen: FC<AccesosScannerScreenProps> = observer(func
 
   const [isLoading, setIsLoading] = useState(false);
   const [isScanning, setIsScanning] = useState(true);
+  const [isScanEnabled, setIsScanEnabled] = useState(true);
   const [isUserAuthorized, setIsUserAuthorized] = useState(false);
   const [isAccessDenied, setIsAccessDenied] = useState(false);
 
@@ -70,11 +71,13 @@ export const AccesosScannerScreen: FC<AccesosScannerScreenProps> = observer(func
     setIsAccessDenied(false)
     setIsUserAuthorized(false)
     setUserPhotoURL("")
+    setIsScanEnabled(true)
     setIsScanning(true)
   }, [])
 
   const setLoadingState = useCallback(() => {
     isDataScannedRef.current = true
+    setIsScanEnabled(false)
     setIsLoading(true)
     setIsScanning(false)
     setIsAccessDenied(false)
@@ -221,8 +224,12 @@ export const AccesosScannerScreen: FC<AccesosScannerScreenProps> = observer(func
       const parentesco = userObj.get('parentesco')
       setUserNombre(userName)
       setUserParentesco(parentesco)
-      storeAcceso(userObj)
-      fetchUserPhotoFromServer(userObj)
+      storeAcceso(userObj).catch((error) => {
+        console.warn('Error en storeAcceso:', error)
+      })
+      fetchUserPhotoFromServer(userObj).catch((error) => {
+        console.warn('Error en fetchUserPhotoFromServer:', error)
+      })
     } else {
       negarAcceso(4)
     }
@@ -260,16 +267,24 @@ export const AccesosScannerScreen: FC<AccesosScannerScreenProps> = observer(func
     const estudianteStatus = estudianteObj.get("status")
     estudianteObjectRef.current = estudianteObj
     const personasAutorizadas = estudianteObj.relation("PersonasAutorizadas")
+    if (estudianteEscuela == null) {
+      negarAcceso(6)
+      return
+    }
     if (authUserEscuela === estudianteEscuela.id) {
       if (estudianteStatus === 0) {
-        validatePersonaAutorizada(personasAutorizadas)
+        validatePersonaAutorizada(personasAutorizadas).catch((error) => {
+          console.warn('Error en validatePersonaAutorizada:', error)
+          presentError('Error de Conexión', 'No se pudo verificar la autorización. Verifique su conexión a internet.')
+          setScanningState()
+        })
       } else {
         negarAcceso(1)
       }
     } else {
       negarAcceso(6)
     }
-  }, [authUserEscuela, validatePersonaAutorizada, negarAcceso])
+  }, [authUserEscuela, validatePersonaAutorizada, negarAcceso, presentError, setScanningState])
 
   const fetchStudentFromServer = useCallback(async (estudianteObjId: string) => {
     try {
@@ -307,6 +322,9 @@ export const AccesosScannerScreen: FC<AccesosScannerScreenProps> = observer(func
   const handleScannedData = useCallback((scannedObj: QRScanData) => {
     if (isDataScannedRef.current === false) {
       try {
+        if (!scannedObj?.data || typeof scannedObj.data !== 'string') {
+          return
+        }
         setLoadingState()
         processScannedData(scannedObj.data)
       } catch (error) {
@@ -354,7 +372,7 @@ export const AccesosScannerScreen: FC<AccesosScannerScreenProps> = observer(func
             barcodeScannerSettings={{
               barcodeTypes: ["qr"],
             }}
-            onBarcodeScanned={handleScannedData}
+            onBarcodeScanned={isScanEnabled ? handleScannedData : undefined}
             style={$cameraView}
           />
         </>

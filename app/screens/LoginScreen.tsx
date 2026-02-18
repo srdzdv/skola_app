@@ -246,13 +246,14 @@ export const LoginScreen: FC<LoginScreenProps> = observer(function LoginScreen({
           </TouchableOpacity>
         )}
       </View>
-
+{/*
       <TouchableOpacity
         style={$registerButton}
         onPress={() => navigation.navigate("RegistroAlumno")}
       >
         <Text style={$registerText}>Registrar Alumno Nuevo</Text>
       </TouchableOpacity>
+*/}
     </Screen>
   )
 })
