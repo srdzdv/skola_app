@@ -169,6 +169,8 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
     const photosRef = useRef<any[]>([])
     const tipoAnuncioRef = useRef<any>(null)
     const rootGruposRef = useRef<any[] | null>(null)
+    const rootAnuncioIdRef = useRef<string | null>(null)
+    const aprobadoRef = useRef<boolean>(true)
 
     const threadId = route.params["threadId"] as string
     const threadSubject = route.params["threadSubject"] as string
@@ -177,16 +179,76 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
     const reloadParent = route.params["reloadTable"] as
       | ((msgType: number) => void)
       | undefined
+    const msgType = route.params["msgType"] as number | undefined
 
     const {
       authenticationStore: { authUserEscuela, authUsertype },
     } = useStores()
 
+    const headerRightPressed = useCallback(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
+      const alertActionsArr: any[] = [
+        { text: "Cancelar", onPress: () => {}, style: "cancel" },
+      ]
+      if (aprobadoRef.current) {
+        alertActionsArr.push({
+          text: "Desactivar mensaje",
+          onPress: () => toggleAprobarAction(),
+        })
+      } else {
+        alertActionsArr.push({
+          text: "Aprobar mensaje",
+          onPress: () => toggleAprobarAction(),
+        })
+      }
+      Alert.alert(
+        "Opciones Adicionales",
+        "Selecciona la accion que deseas ejecutar:",
+        alertActionsArr,
+      )
+    }, [])
+
+    const toggleAprobarAction = useCallback(async () => {
+      const anuncioId = rootAnuncioIdRef.current
+      if (!anuncioId) return
+      const anuncioResult = await ParseAPI.toggleAprobarAnuncio(anuncioId)
+      if (anuncioResult != null) {
+        if (!aprobadoRef.current) {
+          ParseAPI.runCloudCodeFunction("adminApprovedAnuncio", {
+            anuncioObjectId: anuncioResult,
+            escuelaObjId: authUserEscuela,
+          })
+        }
+        aprobadoRef.current = !aprobadoRef.current
+        reloadParent?.(msgType ?? 2)
+
+        const alertTitle = aprobadoRef.current
+          ? "El mensaje ha sido aprobado"
+          : "El mensaje ha sido desactivado"
+        const alertMsg = aprobadoRef.current
+          ? "Ha sido enviado a los Papas correspondientes"
+          : "Nadie puede ver el mensaje hasta que sea activado de nuevo."
+        Alert.alert(alertTitle, alertMsg)
+      }
+    }, [authUserEscuela, reloadParent, msgType])
+
     useEffect(() => {
-      navigation.setOptions({
+      const headerOptions: any = {
         headerTitle: threadSubject || "Conversación",
         headerBackTitleVisible: false,
-      })
+      }
+      if (msgType === 2) {
+        headerOptions.headerRight = () => (
+          <Entypo
+            name="dots-three-horizontal"
+            size={22}
+            color={colors.palette.actionBlue}
+            onPress={headerRightPressed}
+            style={{ marginRight: 8, color: colors.palette.actionColor }}
+          />
+        )
+      }
+      navigation.setOptions(headerOptions)
       loadThreadMessages()
     }, [])
 
@@ -202,6 +264,8 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
           const rootMsg = result.messages[0]
           tipoAnuncioRef.current = rootMsg.get("tipo")
           rootGruposRef.current = rootMsg.get("grupos") || null
+          rootAnuncioIdRef.current = rootMsg.id
+          aprobadoRef.current = rootMsg.get("aprobado") ?? true
         }
 
         const processed: ThreadMessage[] = []

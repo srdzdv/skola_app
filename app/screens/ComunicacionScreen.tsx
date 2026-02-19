@@ -455,14 +455,15 @@ export const ComunicacionScreen: FC<ComunicacionScreenProps> = observer(function
   }
 
   function handleCellPress(item: any) {
-    if (item.isThread && item.threadId) {
-      // Navigate to thread detail view
+    if (item.isThread && item.threadId && selectedIndex !== 1) {
+      // Navigate to thread detail view (not for "Por Aprobar" — admin needs to approve individual messages)
       const threadParams = {
         threadId: item.threadId,
         threadSubject: item.threadSubject || item.descripcionPreview,
         estudianteId: item.estudianteId || null,
         grupoData: item.grupoData || null,
         reloadTable: reloadTable,
+        msgType: item.msgType,
       }
       navigation.navigate("ThreadDetail", threadParams)
     } else {
