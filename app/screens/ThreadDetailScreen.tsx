@@ -171,6 +171,7 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
     const rootGruposRef = useRef<any[] | null>(null)
     const rootAnuncioIdRef = useRef<string | null>(null)
     const aprobadoRef = useRef<boolean>(true)
+    const seenByDataRef = useRef<any[]>([])
 
     const threadId = route.params["threadId"] as string
     const threadSubject = route.params["threadSubject"] as string
@@ -185,6 +186,12 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
       authenticationStore: { authUserEscuela, authUsertype },
     } = useStores()
 
+    const vistoAction = useCallback(() => {
+      navigation.navigate("seenBy", {
+        tableData: seenByDataRef.current,
+      })
+    }, [navigation])
+
     const headerRightPressed = useCallback(() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
       const alertActionsArr: any[] = [
@@ -194,6 +201,10 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
         alertActionsArr.push({
           text: "Desactivar mensaje",
           onPress: () => toggleAprobarAction(),
+        })
+        alertActionsArr.push({
+          text: "Visto por",
+          onPress: () => vistoAction(),
         })
       } else {
         alertActionsArr.push({
@@ -206,7 +217,7 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
         "Selecciona la accion que deseas ejecutar:",
         alertActionsArr,
       )
-    }, [])
+    }, [vistoAction])
 
     const toggleAprobarAction = useCallback(async () => {
       const anuncioId = rootAnuncioIdRef.current
@@ -266,6 +277,15 @@ export const ThreadDetailScreen: FC<ThreadDetailScreenProps> = observer(
           rootGruposRef.current = rootMsg.get("grupos") || null
           rootAnuncioIdRef.current = rootMsg.id
           aprobadoRef.current = rootMsg.get("aprobado") ?? true
+
+          // Fetch seen-by data for the root message
+          if (msgType === 2 && aprobadoRef.current) {
+            ParseAPI.fetchSeenBy(rootMsg.id).then((seenByRes) => {
+              if (seenByRes != null) {
+                seenByDataRef.current = seenByRes
+              }
+            })
+          }
         }
 
         const processed: ThreadMessage[] = []

@@ -6,7 +6,9 @@
       "Bash(npx tsc:*)",
       "Bash(npm run compile:*)",
       "Bash(node:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(grep:*)",
+      "Bash(xargs cat:*)"
     ]
   }
 }
